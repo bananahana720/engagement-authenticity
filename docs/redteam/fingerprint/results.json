@@ -1,0 +1,596 @@
+{
+ "models": {
+  "llama": "unsloth/Llama-3.2-1B-Instruct",
+  "qwen": "Qwen/Qwen2.5-1.5B-Instruct",
+  "gemma": "unsloth/gemma-3-1b-it",
+  "deepseek": "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
+  "smollm": "HuggingFaceTB/SmolLM2-1.7B-Instruct",
+  "falcon": "tiiuae/Falcon3-1B-Instruct",
+  "mistral": "mistralai/Ministral-3-3B-Instruct-2512-GGUF"
+ },
+ "texts_kept": {
+  "deepseek": {
+   "short_plain": 104,
+   "short_human": 106,
+   "long_plain": 46,
+   "short_paraphrased": 104
+  },
+  "falcon": {
+   "short_plain": 300,
+   "short_human": 294,
+   "long_plain": 147,
+   "short_paraphrased": 120
+  },
+  "gemma": {
+   "short_plain": 300,
+   "short_human": 300,
+   "long_plain": 150,
+   "short_paraphrased": 120
+  },
+  "llama": {
+   "short_plain": 300,
+   "short_human": 300,
+   "long_plain": 150,
+   "short_paraphrased": 120
+  },
+  "mistral": {
+   "short_plain": 120,
+   "short_human": 120,
+   "long_plain": 50,
+   "short_paraphrased": 120
+  },
+  "qwen": {
+   "short_plain": 274,
+   "short_human": 297,
+   "long_plain": 144,
+   "short_paraphrased": 110
+  },
+  "smollm": {
+   "short_plain": 300,
+   "short_human": 300,
+   "long_plain": 150,
+   "short_paraphrased": 120
+  }
+ },
+ "refusals_dropped": {
+  "deepseek": {
+   "long_plain": 1
+  },
+  "falcon": {
+   "short_human": 6,
+   "long_plain": 3
+  },
+  "qwen": {
+   "short_paraphrased": 3,
+   "short_plain": 26,
+   "short_human": 3,
+   "long_plain": 6
+  }
+ },
+ "main": {
+  "families": [
+   "llama",
+   "qwen",
+   "gemma",
+   "smollm",
+   "falcon"
+  ],
+  "chance": 0.2,
+  "median_words": {
+   "short": 45.0,
+   "human_style": 32.0,
+   "long": 205.0,
+   "paraphrased": 43.0
+  },
+  "replies_per_family": {
+   "short": 300,
+   "long": 150,
+   "paraphrased": 119
+  },
+  "short": {
+   "accuracy": 0.76797829036635,
+   "low": 0.7457485042927584,
+   "high": 0.7888148751655001,
+   "n": 1474
+  },
+  "long": {
+   "accuracy": 0.8717948717948718,
+   "low": 0.8457912995922123,
+   "high": 0.8939633005804957,
+   "n": 741
+  },
+  "confusion": {
+   "llama": {
+    "llama": 263,
+    "qwen": 11,
+    "gemma": 0,
+    "smollm": 20,
+    "falcon": 6
+   },
+   "qwen": {
+    "llama": 28,
+    "qwen": 145,
+    "gemma": 3,
+    "smollm": 51,
+    "falcon": 47
+   },
+   "gemma": {
+    "llama": 0,
+    "qwen": 2,
+    "gemma": 297,
+    "smollm": 0,
+    "falcon": 1
+   },
+   "smollm": {
+    "llama": 33,
+    "qwen": 52,
+    "gemma": 2,
+    "smollm": 181,
+    "falcon": 32
+   },
+   "falcon": {
+    "llama": 10,
+    "qwen": 31,
+    "gemma": 0,
+    "smollm": 13,
+    "falcon": 246
+   }
+  },
+  "per_family_short": {
+   "llama": 0.8766666666666667,
+   "qwen": 0.5291970802919708,
+   "gemma": 0.99,
+   "smollm": 0.6033333333333334,
+   "falcon": 0.82
+  },
+  "short_without_opening": {
+   "accuracy": 0.6933514246947082,
+   "low": 0.6693341630396287,
+   "high": 0.7163634651770895,
+   "n": 1474
+  },
+  "raw_formatting": {
+   "short": {
+    "accuracy": 0.7862957937584804,
+    "low": 0.7646385548821086,
+    "high": 0.8064645998808917,
+    "n": 1474
+   },
+   "long": {
+    "accuracy": 0.8771929824561403,
+    "low": 0.8515961391995723,
+    "high": 0.8988989996326302,
+    "n": 741
+   }
+  },
+  "by_length": [
+   {
+    "words": 5,
+    "accuracy": 0.7462887989203779,
+    "low": 0.7137429209279622,
+    "high": 0.7762941554114904,
+    "n": 741,
+    "middle": {
+     "accuracy": 0.2766531713900135,
+     "low": 0.24565782710948866,
+     "high": 0.3099523858539118,
+     "n": 741
+    }
+   },
+   {
+    "words": 10,
+    "accuracy": 0.738191632928475,
+    "low": 0.7053673630792192,
+    "high": 0.7685589052709911,
+    "n": 741,
+    "middle": {
+     "accuracy": 0.3468286099865047,
+     "low": 0.3134276629993009,
+     "high": 0.3818095525375327,
+     "n": 741
+    }
+   },
+   {
+    "words": 20,
+    "accuracy": 0.7435897435897436,
+    "low": 0.7109495143682089,
+    "high": 0.7737172926414962,
+    "n": 741,
+    "middle": {
+     "accuracy": 0.4318488529014845,
+     "low": 0.39662549475445247,
+     "high": 0.46777520466942507,
+     "n": 741
+    }
+   },
+   {
+    "words": 40,
+    "accuracy": 0.7678812415654521,
+    "low": 0.7361483577244486,
+    "high": 0.7968508732529834,
+    "n": 741,
+    "middle": {
+     "accuracy": 0.524966261808367,
+     "low": 0.4889738171274306,
+     "high": 0.5607011741727329,
+     "n": 741
+    }
+   },
+   {
+    "words": 80,
+    "accuracy": 0.7935222672064778,
+    "low": 0.762899320340479,
+    "high": 0.8211174692695535,
+    "n": 741,
+    "middle": {
+     "accuracy": 0.6680161943319838,
+     "low": 0.6333183420631748,
+     "high": 0.7009809237136023,
+     "n": 741
+    }
+   },
+   {
+    "words": 160,
+    "accuracy": 0.8380566801619433,
+    "low": 0.8097986220742435,
+    "high": 0.8628276114766216,
+    "n": 741,
+    "middle": {
+     "accuracy": 0.8043184885290149,
+     "low": 0.7742143834543913,
+     "high": 0.831283483474631,
+     "n": 741
+    }
+   }
+  ],
+  "pooled": [
+   {
+    "replies": 1,
+    "accuracy": 0.764,
+    "low": 0.7367023285873138,
+    "high": 0.789277068959072,
+    "n": 1000
+   },
+   {
+    "replies": 3,
+    "accuracy": 0.911,
+    "low": 0.891742264575647,
+    "high": 0.9271120247863402,
+    "n": 1000
+   },
+   {
+    "replies": 5,
+    "accuracy": 0.951,
+    "low": 0.9358089847812472,
+    "high": 0.9627391526938285,
+    "n": 1000
+   },
+   {
+    "replies": 10,
+    "accuracy": 0.993,
+    "low": 0.9856215030730511,
+    "high": 0.996605174920768,
+    "n": 1000
+   },
+   {
+    "replies": 20,
+    "accuracy": 1.0,
+    "low": 0.9961731014136095,
+    "high": 1.0,
+    "n": 1000
+   }
+  ],
+  "paraphrased_called_paraphraser": 0.12605042016806722,
+  "evasion": {
+   "none": {
+    "accuracy": 0.76797829036635,
+    "low": 0.7457485042927584,
+    "high": 0.7888148751655001,
+    "n": 1474
+   },
+   "human_style_unseen": {
+    "accuracy": 0.4024144869215292,
+    "low": 0.3778043398212207,
+    "high": 0.4275262049000395,
+    "n": 1491
+   },
+   "human_style_trained": {
+    "accuracy": 0.8786049631120053,
+    "low": 0.8610474051224741,
+    "high": 0.8942165639830151,
+    "n": 1491
+   },
+   "paraphrased_unseen": {
+    "accuracy": 0.4581196581196581,
+    "low": 0.418148249583189,
+    "high": 0.4986375209873685,
+    "n": 585
+   },
+   "paraphrased_trained": {
+    "accuracy": 0.5111111111111111,
+    "low": 0.4706629028362382,
+    "high": 0.5514143417062668,
+    "n": 585
+   }
+  }
+ },
+ "all_families": {
+  "families": [
+   "llama",
+   "qwen",
+   "gemma",
+   "deepseek",
+   "smollm",
+   "falcon",
+   "mistral"
+  ],
+  "chance": 0.14285714285714285,
+  "median_words": {
+   "short": 48.0,
+   "human_style": 34.0,
+   "long": 209.5,
+   "paraphrased": 45.0
+  },
+  "replies_per_family": {
+   "short": 119,
+   "long": 50,
+   "paraphrased": 119
+  },
+  "short": {
+   "accuracy": 0.7079207920792079,
+   "low": 0.6756417144192326,
+   "high": 0.7382321250095425,
+   "n": 808
+  },
+  "long": {
+   "accuracy": 0.8245614035087719,
+   "low": 0.7807084980450121,
+   "high": 0.8612038687726293,
+   "n": 342
+  },
+  "confusion": {
+   "llama": {
+    "llama": 94,
+    "qwen": 4,
+    "gemma": 0,
+    "deepseek": 6,
+    "smollm": 11,
+    "falcon": 3,
+    "mistral": 1
+   },
+   "qwen": {
+    "llama": 9,
+    "qwen": 47,
+    "gemma": 0,
+    "deepseek": 5,
+    "smollm": 23,
+    "falcon": 23,
+    "mistral": 2
+   },
+   "gemma": {
+    "llama": 0,
+    "qwen": 1,
+    "gemma": 118,
+    "deepseek": 0,
+    "smollm": 0,
+    "falcon": 0,
+    "mistral": 0
+   },
+   "deepseek": {
+    "llama": 8,
+    "qwen": 6,
+    "gemma": 2,
+    "deepseek": 64,
+    "smollm": 9,
+    "falcon": 11,
+    "mistral": 4
+   },
+   "smollm": {
+    "llama": 16,
+    "qwen": 19,
+    "gemma": 1,
+    "deepseek": 12,
+    "smollm": 50,
+    "falcon": 17,
+    "mistral": 4
+   },
+   "falcon": {
+    "llama": 5,
+    "qwen": 11,
+    "gemma": 1,
+    "deepseek": 5,
+    "smollm": 10,
+    "falcon": 87,
+    "mistral": 0
+   },
+   "mistral": {
+    "llama": 1,
+    "qwen": 1,
+    "gemma": 0,
+    "deepseek": 2,
+    "smollm": 1,
+    "falcon": 2,
+    "mistral": 112
+   }
+  },
+  "per_family_short": {
+   "llama": 0.7899159663865546,
+   "qwen": 0.43119266055045874,
+   "gemma": 0.9915966386554622,
+   "deepseek": 0.6153846153846154,
+   "smollm": 0.42016806722689076,
+   "falcon": 0.7310924369747899,
+   "mistral": 0.9411764705882353
+  },
+  "short_without_opening": {
+   "accuracy": 0.6212871287128713,
+   "low": 0.5873409242517416,
+   "high": 0.6540854820817106,
+   "n": 808
+  },
+  "raw_formatting": {
+   "short": {
+    "accuracy": 0.7400990099009901,
+    "low": 0.7087719041486387,
+    "high": 0.7691538390012567,
+    "n": 808
+   },
+   "long": {
+    "accuracy": 0.8128654970760234,
+    "low": 0.7681376867972396,
+    "high": 0.8506427028377841,
+    "n": 342
+   }
+  },
+  "by_length": [
+   {
+    "words": 5,
+    "accuracy": 0.6140350877192983,
+    "low": 0.56144441521804,
+    "high": 0.6640923623124826,
+    "n": 342,
+    "middle": {
+     "accuracy": 0.16374269005847952,
+     "low": 0.12829903680129146,
+     "high": 0.20665661919844946,
+     "n": 342
+    }
+   },
+   {
+    "words": 10,
+    "accuracy": 0.6403508771929824,
+    "low": 0.5881893395457901,
+    "high": 0.6893943866456224,
+    "n": 342,
+    "middle": {
+     "accuracy": 0.28362573099415206,
+     "low": 0.23846116154521463,
+     "high": 0.3335972605763578,
+     "n": 342
+    }
+   },
+   {
+    "words": 20,
+    "accuracy": 0.6081871345029239,
+    "low": 0.5555225415632734,
+    "high": 0.6584482473759403,
+    "n": 342,
+    "middle": {
+     "accuracy": 0.40058479532163743,
+     "low": 0.35003225843212343,
+     "high": 0.453345935515626,
+     "n": 342
+    }
+   },
+   {
+    "words": 40,
+    "accuracy": 0.6608187134502924,
+    "low": 0.6091033615354614,
+    "high": 0.7089613247255321,
+    "n": 342,
+    "middle": {
+     "accuracy": 0.4678362573099415,
+     "low": 0.4156042716865175,
+     "high": 0.5207827910612838,
+     "n": 342
+    }
+   },
+   {
+    "words": 80,
+    "accuracy": 0.716374269005848,
+    "low": 0.6664027394236423,
+    "high": 0.7615388384547854,
+    "n": 342,
+    "middle": {
+     "accuracy": 0.6257309941520468,
+     "low": 0.5733113788058976,
+     "high": 0.6753573759072428,
+     "n": 342
+    }
+   },
+   {
+    "words": 160,
+    "accuracy": 0.804093567251462,
+    "low": 0.7587488456292618,
+    "high": 0.8426825611187986,
+    "n": 342,
+    "middle": {
+     "accuracy": 0.7280701754385965,
+     "low": 0.6785727544875197,
+     "high": 0.7725008005735257,
+     "n": 342
+    }
+   }
+  ],
+  "pooled": [
+   {
+    "replies": 1,
+    "accuracy": 0.7007142857142857,
+    "low": 0.6762029471385234,
+    "high": 0.7241271185896898,
+    "n": 1400
+   },
+   {
+    "replies": 3,
+    "accuracy": 0.8657142857142858,
+    "low": 0.8468493854365655,
+    "high": 0.88257763823904,
+    "n": 1400
+   },
+   {
+    "replies": 5,
+    "accuracy": 0.9121428571428571,
+    "low": 0.8961634448742508,
+    "high": 0.9258666189164217,
+    "n": 1400
+   },
+   {
+    "replies": 10,
+    "accuracy": 0.9564285714285714,
+    "low": 0.9444279210138685,
+    "high": 0.965931196425022,
+    "n": 1400
+   },
+   {
+    "replies": 20,
+    "accuracy": 0.9728571428571429,
+    "low": 0.9629646576539921,
+    "high": 0.9801616893640759,
+    "n": 1400
+   }
+  ],
+  "paraphrased_called_paraphraser": 0.10014306151645208,
+  "evasion": {
+   "none": {
+    "accuracy": 0.7079207920792079,
+    "low": 0.6756417144192326,
+    "high": 0.7382321250095425,
+    "n": 808
+   },
+   "human_style_unseen": {
+    "accuracy": 0.3505535055350554,
+    "low": 0.3185270936246652,
+    "high": 0.38398560896051176,
+    "n": 813
+   },
+   "human_style_trained": {
+    "accuracy": 0.7847478474784748,
+    "low": 0.7551913703101093,
+    "high": 0.8116259906078461,
+    "n": 813
+   },
+   "paraphrased_unseen": {
+    "accuracy": 0.4121287128712871,
+    "low": 0.3786826625974977,
+    "high": 0.44640636954867463,
+    "n": 808
+   },
+   "paraphrased_trained": {
+    "accuracy": 0.4665841584158416,
+    "low": 0.4324242009406507,
+    "high": 0.5010603605797247,
+    "n": 808
+   }
+  }
+ }
+}
