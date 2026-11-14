@@ -3,6 +3,13 @@
 Read on 2026-11-14 from Andrew's PC, which can reach redditinc.com and Arctic Shift.
 This is a plain reading by the project, not legal advice.
 
+## Status
+
+Reddit collection was paused on 2026-11-14 at Andrew's request, and real-data work
+is moving to other platforms. On disk from before the pause: monthly comment and
+post counts only (`reports/immigration/volumes.csv`) and Reddit's published 2018
+account list (`data/seeds/`). No Reddit comments were collected.
+
 ## Verdict
 
 Reddit's terms do not forbid this project's collection and aggregate measurement.
