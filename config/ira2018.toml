@@ -8,3 +8,8 @@ reports_dir = "reports/ira2018"
 
 [source]
 base_url = "https://raw.githubusercontent.com/ALCC01/reddit-suspicious-accounts/master"
+
+[collect]
+# Used by `python -m ea threads` to fill in everyone's replies in the seeds' threads.
+api_base = "https://arctic-shift.photon-reddit.com"
+seconds_between_requests = 1.0
