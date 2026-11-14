@@ -8,3 +8,5 @@ networkx>=3.2
 pytest>=8.0
 # Only needed to read monthly .zst dump files:
 zstandard>=0.22
+# Only needed to generate text for the model-fingerprint test (python -m ea fingerprint-generate):
+# torch>=2.4  transformers>=4.50  llama-cpp-python>=0.3
