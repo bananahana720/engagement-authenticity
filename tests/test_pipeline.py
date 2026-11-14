@@ -349,12 +349,17 @@ def bsky_cfg(tmp_path, monkeypatch):
 
 def test_bluesky_reads_both_stream_layouts_and_skips_other_events():
     record = {"text": "hi"}
-    assert bluesky.parse_event(new_layout("did:plc:alice", "r1", record)) == ("create", ROOT, record)
-    assert bluesky.parse_event(old_layout("did:plc:alice", "r1", record)) == ("create", ROOT, record)
+    expected = ("create", "app.bsky.feed.post", "did:plc:alice", ROOT, record)
+    assert bluesky.parse_event(new_layout("did:plc:alice", "r1", record)) == expected
+    assert bluesky.parse_event(old_layout("did:plc:alice", "r1", record)) == expected
     assert bluesky.parse_event({"did": "did:plc:alice", "kind": "identity"}) is None
-    like = old_layout("did:plc:alice", "r1", record)
-    like["commit"]["collection"] = "app.bsky.feed.like"
-    assert bluesky.parse_event(like) is None
+
+
+def test_bluesky_stream_address_asks_for_each_kind_of_record():
+    assert bluesky.stream_address("wss://host/x?collections=", ["a.b", "c.d"]) == \
+        "wss://host/x?collections=a.b&collections=c.d"
+    assert bluesky.stream_address("wss://host/subscribe?wantedCollections=", ["a.b"]) == \
+        "wss://host/subscribe?wantedCollections=a.b"
 
 
 def test_bluesky_minimize_hashes_account_and_post_addresses():
@@ -386,7 +391,7 @@ def test_bluesky_listen_counts_topics_and_remembers_threads(bsky_cfg):
         new_layout("did:plc:erin", "r5", {}, operation="delete"),
         new_layout("did:plc:fay", "r6", {"text": "ICE was outside the school"}),
     ]]
-    volumes, threads, deleted = bluesky.listen(bsky_cfg, 60, events)
+    volumes, threads, deleted, opted_out, opted_in = bluesky.listen(bsky_cfg, 60, events)
     by_topic = volumes.set_index("topic")
     assert by_topic.loc["all", "posts"] == 5
     assert by_topic.loc["immigration", "posts"] == 3 and by_topic.loc["immigration", "replies"] == 1
@@ -420,3 +425,47 @@ def test_bluesky_collect_writes_files_the_features_stage_can_load(bsky_cfg):
     gone = [bluesky.parse_event(new_layout("did:plc:bob", "r2", {}, operation="delete"))]
     bluesky.collect(bsky_cfg, 1, session=FakeBluesky(), events=gone)
     assert (folder / "comments.jsonl").read_text() == ""
+
+
+def reuse_declaration(did, record, operation="create"):
+    event = new_layout(did, "self", record, operation)
+    event["payload"]["collection"] = "org.user-intents.declaration"
+    return bluesky.parse_event(event)
+
+
+def test_bluesky_reuse_declaration_has_three_answers():
+    assert not bluesky.allows_bulk_datasets({"bulkDataset": {"allow": False}})
+    assert bluesky.allows_bulk_datasets({"bulkDataset": {"allow": True}})
+    assert bluesky.allows_bulk_datasets({"bulkDataset": {"updatedAt": "2026-01-01T00:00:00Z"}})   # no answer given
+    assert bluesky.allows_bulk_datasets({"syntheticContentGeneration": {"allow": False}})         # a different question
+
+
+def test_bluesky_accounts_that_opt_out_of_datasets_are_never_stored_and_are_removed(bsky_cfg):
+    start = bluesky.parse_event(new_layout("did:plc:alice", "r1", {"text": "New deportation flights"}))
+    folder = paths(bsky_cfg)["collected"] / "bluesky"
+
+    bluesky.collect(bsky_cfg, 1, session=FakeBluesky(), events=[start])
+    assert len((folder / "comments.jsonl").read_text().splitlines()) == 1
+
+    # Bob says no to bulk datasets: his stored reply goes, and it is not stored again.
+    says_no = reuse_declaration("did:plc:bob", {"bulkDataset": {"allow": False}})
+    bluesky.collect(bsky_cfg, 1, session=FakeBluesky(), events=[says_no, start])
+    assert (folder / "comments.jsonl").read_text() == ""
+    assert "did:plc" not in (folder / "opted_out.jsonl").read_text()
+    bluesky.collect(bsky_cfg, 1, session=FakeBluesky(), events=[start])       # the opt-out is remembered
+    assert (folder / "comments.jsonl").read_text() == ""
+
+    # Bob withdraws the declaration: his posts may be stored again.
+    bluesky.collect(bsky_cfg, 1, session=FakeBluesky(), events=[reuse_declaration("did:plc:bob", {}, "delete"), start])
+    assert len((folder / "comments.jsonl").read_text().splitlines()) == 1
+
+
+def test_bluesky_account_labels_are_kept_apart_and_hashed():
+    post = thread_post(ROOT, "did:plc:alice", "alice.bsky.social", "hi", labels=["spam"])
+    post["author"]["labels"] = [{"val": "spam", "src": "did:plc:moderation"},
+                                {"val": "bot", "src": "did:plc:alice"},
+                                {"val": "inauthentic", "src": "did:plc:moderation", "neg": True}]
+    labels = bluesky.account_labels(post, b"k")
+    assert [(l["label"], l["self_applied"], l["labeler"]) for l in labels] == \
+        [("spam", False, "did:plc:moderation"), ("bot", True, "")]
+    assert "alice" not in json.dumps(labels)

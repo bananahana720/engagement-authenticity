@@ -12,8 +12,16 @@ Two steps in one run, so that nothing identifying is ever written:
 A Bluesky post address contains its author's permanent identifier, so post ids are
 hashed as well as author ids. Raw records and raw addresses never touch disk.
 
-While listening, the run also watches for posts their authors delete. Any deleted
-post that is already in the collected files is removed from them at the end.
+While listening, the run also watches for two things, and acts on both at the end:
+
+  - posts their authors delete: removed from the collected files;
+  - accounts that declare they do not allow their posts in bulk datasets: never
+    stored, and anything already stored from them is removed. Bluesky's proposal
+    for this declaration is still a draft, so today the stream carries none. The
+    check is in place for the day it does.
+
+Moderation labels on an account (spam, inauthentic and so on) are kept in a separate
+file, as possible ground truth. They are never used as a feature.
 
 See docs/SOURCES.md for the terms this is built around.
 """
@@ -41,21 +49,37 @@ DISCLOSED_BOT_HANDLE = re.compile(r"(?i)[-_]bot$")
 # ---------- reading the stream ----------
 
 def parse_event(event):
-    """Return (operation, post address, record) for a post event, else None.
+    """Return (operation, kind of record, account, record address, record), else None.
 
     Jetstream has two message layouts. The newer one wraps everything in "payload"
     with the commit fields at the top; the older one nests them under "commit".
     """
     payload = event.get("payload", event)
     commit = payload.get("commit") or payload
-    if commit.get("collection") != POST or not payload.get("did"):
+    kind, account = commit.get("collection"), payload.get("did")
+    if not kind or not account:
         return None
-    address = f"at://{payload['did']}/{POST}/{commit.get('rkey')}"
-    return commit.get("operation"), address, commit.get("record") or {}
+    address = f"at://{account}/{kind}/{commit.get('rkey')}"
+    return commit.get("operation"), kind, account, address, commit.get("record") or {}
 
 
-def stream_events(urls, seconds, connect=None):
-    """Yield parsed post events from Jetstream until the time is up.
+def stream_address(url, kinds):
+    """Add the kinds of record wanted to an address that ends in its filter name, "...?collections="."""
+    name = url.rsplit("?", 1)[-1]
+    return url + f"&{name}".join(kinds)
+
+
+def allows_bulk_datasets(declaration):
+    """False only when an account's reuse declaration says no to bulk datasets.
+
+    Follows Bluesky's draft "User Intents for Data Reuse": a missing answer means
+    the account has not stated a preference.
+    """
+    return (declaration.get("bulkDataset") or {}).get("allow") is not False
+
+
+def stream_events(urls, seconds, kinds=(POST,), connect=None):
+    """Yield parsed events of the wanted kinds from Jetstream until the time is up.
 
     Tries each address in turn and reconnects when a connection drops.
     """
@@ -64,7 +88,7 @@ def stream_events(urls, seconds, connect=None):
     deadline = time.monotonic() + seconds
     failures = 0
     while time.monotonic() < deadline and failures < 3 * len(urls):
-        url = urls[failures % len(urls)]
+        url = stream_address(urls[failures % len(urls)], kinds)
         try:
             with connect(url, open_timeout=20, user_agent_header=USER_AGENT) as socket:
                 while time.monotonic() < deadline:
@@ -81,9 +105,10 @@ def stream_events(urls, seconds, connect=None):
 
 
 def listen(cfg, seconds, events=None):
-    """Step 1. Returns (volume table, thread addresses busiest first, deleted post ids).
+    """Step 1. Returns (volume table, thread addresses busiest first, deleted post ids,
+    accounts that opted out of bulk datasets, accounts that withdrew an opt-out).
 
-    Thread addresses stay in memory only. Deleted posts are returned already hashed.
+    Thread addresses stay in memory only. Posts and accounts are returned already hashed.
     """
     key = load_key()
     patterns = {name: topic_pattern(words) for name, words in cfg["topics"].items()}
@@ -93,10 +118,19 @@ def listen(cfg, seconds, events=None):
     collect_topic = cfg["bluesky"]["collect_topic"]
     counts = Counter()
     threads = Counter()         # thread address -> on-topic posts seen in it
-    deleted = set()
+    deleted, opted_out, opted_in = set(), set(), set()
+    reuse_kinds = cfg["bluesky"].get("reuse_declarations", [])
     started = time.time()
 
-    for operation, address, record in events or stream_events(cfg["bluesky"]["stream_urls"], seconds):
+    live = events or stream_events(cfg["bluesky"]["stream_urls"], seconds, [POST] + reuse_kinds)
+    for operation, kind, account, address, record in live:
+        if kind in reuse_kinds:
+            says_no = operation != "delete" and not allows_bulk_datasets(record)
+            (opted_out if says_no else opted_in).add(pseudonym(account, key))
+            (opted_in if says_no else opted_out).discard(pseudonym(account, key))
+            continue
+        if kind != POST:
+            continue
         if operation == "delete":
             deleted.add(pseudonym(address, key))
             continue
@@ -113,7 +147,8 @@ def listen(cfg, seconds, events=None):
                     threads[root] += 1
 
     minutes = max((time.time() - started) / 60, 1e-9) if events is None else seconds / 60
-    return volume_table(counts, list(patterns), minutes), [a for a, _ in threads.most_common()], deleted
+    busiest_first = [a for a, _ in threads.most_common()]
+    return volume_table(counts, list(patterns), minutes), busiest_first, deleted, opted_out, opted_in
 
 
 def volume_table(counts, topics, minutes):
@@ -188,6 +223,18 @@ def minimize(post, key):
     return "comment", small
 
 
+def account_labels(post, key):
+    """Moderation labels on a post's author, as small records. Withdrawn labels are skipped.
+
+    A label an account puts on itself is marked, because it is a statement, not a finding.
+    """
+    author = post["author"]
+    return [{"author_hash": pseudonym(author["did"], key), "label": label.get("val"),
+             "self_applied": label.get("src") == author["did"],
+             "labeler": "" if label.get("src") == author["did"] else label.get("src", "")}
+            for label in author.get("labels") or [] if not label.get("neg")]
+
+
 # ---------- the whole run ----------
 
 def collect(cfg, minutes, session=None, events=None):
@@ -195,7 +242,7 @@ def collect(cfg, minutes, session=None, events=None):
     session = session or requests.Session()
     key = load_key()
     settings = cfg["bluesky"]
-    volumes, threads, deleted = listen(cfg, minutes * 60, events)
+    volumes, threads, deleted, opted_out, opted_in = listen(cfg, minutes * 60, events)
 
     report = paths(cfg)["volumes"]
     report.parent.mkdir(parents=True, exist_ok=True)
@@ -204,39 +251,56 @@ def collect(cfg, minutes, session=None, events=None):
     folder = paths(cfg)["collected"] / COMMUNITY
     folder.mkdir(parents=True, exist_ok=True)
     files = {"post": folder / "posts.jsonl", "comment": folder / "comments.jsonl"}
-    seen = {kind: stored_ids(path) for kind, path in files.items()}
+    labels_path, opt_out_path = folder / "labels.jsonl", folder / "opted_out.jsonl"
+
+    # Everyone who has ever opted out, minus those who have since withdrawn it.
+    opted_out = (stored_values(opt_out_path, "author_hash") | opted_out) - opted_in
+    opt_out_path.write_text("".join(json.dumps({"author_hash": a}) + "\n" for a in sorted(opted_out)))
+
+    seen = {kind: stored_values(path, "id") for kind, path in files.items()}
+    seen_labels = {json.dumps(row, sort_keys=True) for row in read_lines(labels_path)}
     written = Counter()
-    with open(files["post"], "a") as posts_file, open(files["comment"], "a") as comments_file:
+    with open(files["post"], "a") as posts_file, open(files["comment"], "a") as comments_file, \
+         open(labels_path, "a") as labels_file:
         out = {"post": posts_file, "comment": comments_file}
         for address in threads[:settings["max_threads"]]:
             for raw in walk(fetch_thread(session, settings["api_base"], address)):
                 kind, small = minimize(raw, key)
-                if small["id"] not in seen[kind] and small["id"] not in deleted:
+                if small["author_hash"] in opted_out or small["id"] in deleted:
+                    continue
+                if small["id"] not in seen[kind]:
                     write_line(out[kind], small)
                     seen[kind].add(small["id"])
                     written[kind] += 1
+                for label in account_labels(raw, key):
+                    if json.dumps(label, sort_keys=True) not in seen_labels:
+                        write_line(labels_file, label)
+                        seen_labels.add(json.dumps(label, sort_keys=True))
             time.sleep(settings["seconds_between_requests"])
 
-    forgotten = sum(forget(path, deleted) for path in files.values())
+    forgotten = sum(forget(path, "id", deleted) for path in files.values())
+    withdrawn = sum(forget(path, "author_hash", opted_out) for path in [*files.values(), labels_path])
     print(f"Threads touched by the topic: {len(threads)}. Stored {written['post']} thread starts "
-          f"and {written['comment']} replies. Removed {forgotten} posts their authors deleted.")
+          f"and {written['comment']} replies. Removed {forgotten} posts their authors deleted "
+          f"and {withdrawn} records from accounts that opted out of datasets.")
     return volumes
 
 
-def stored_ids(path):
+def read_lines(path):
     if not path.exists():
-        return set()
+        return []
     with open(path) as f:
-        return {json.loads(line)["id"] for line in f if line.strip()}
+        return [json.loads(line) for line in f if line.strip()]
 
 
-def forget(path, deleted_ids):
-    """Remove stored posts whose authors have deleted them. Returns how many went."""
-    if not path.exists() or not deleted_ids:
-        return 0
-    with open(path) as f:
-        lines = [line for line in f if line.strip()]
-    kept = [line for line in lines if json.loads(line)["id"] not in deleted_ids]
-    if len(kept) < len(lines):
-        path.write_text("".join(kept))
-    return len(lines) - len(kept)
+def stored_values(path, field):
+    return {row[field] for row in read_lines(path)}
+
+
+def forget(path, field, values):
+    """Remove stored records whose field is in values. Returns how many went."""
+    rows = read_lines(path)
+    kept = [row for row in rows if row[field] not in values]
+    if len(kept) < len(rows):
+        path.write_text("".join(json.dumps(row) + "\n" for row in kept))
+    return len(rows) - len(kept)

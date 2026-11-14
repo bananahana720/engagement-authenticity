@@ -37,11 +37,16 @@ immigration = ["ICE"]
 
 [bluesky]
 collect_topic = "immigration"
+# Records in which an account states whether its posts may be reused. An account that
+# says no to "bulk datasets" is never stored. The name comes from Bluesky's draft
+# proposal and is a placeholder there: update it when the proposal is adopted.
+reuse_declarations = ["org.user-intents.declaration"]
 # Jetstream: Bluesky's public JSON stream. No account or key. Tried in order.
+# Each address ends with the name of its filter; the code adds the kinds of record wanted.
 stream_urls = [
-    "wss://jetstream.us-east.bsky.network/xrpc/network.bsky.jetstream.subscribeEvents?collections=app.bsky.feed.post",
-    "wss://jetstream2.us-east.bsky.network/subscribe?wantedCollections=app.bsky.feed.post",
-    "wss://jetstream1.us-west.bsky.network/subscribe?wantedCollections=app.bsky.feed.post",
+    "wss://jetstream.us-east.bsky.network/xrpc/network.bsky.jetstream.subscribeEvents?collections=",
+    "wss://jetstream2.us-east.bsky.network/subscribe?wantedCollections=",
+    "wss://jetstream1.us-west.bsky.network/subscribe?wantedCollections=",
 ]
 api_base = "https://public.api.bsky.app"    # the cached public API Bluesky asks developers to use
 max_threads = 600                           # per run: the busiest on-topic threads are fetched first
