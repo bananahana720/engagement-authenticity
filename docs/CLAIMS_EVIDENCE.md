@@ -69,7 +69,7 @@ toward one side.
 
 ### How the result feeds the buckets
 
-Proposed, pending the owner's decision:
+Decided by the project owner on 2026-11-14 (separate second figure):
 
 - The three fact-check buckets keep their meaning. "Rated false" still means an
   independent fact-checker rated it false.
