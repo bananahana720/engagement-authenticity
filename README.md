@@ -63,6 +63,9 @@ Read [docs/DATA_TERMS.md](docs/DATA_TERMS.md) first.
 
 **No model is trained on Reddit data** until Reddit gives permission. `python -m ea train` refuses Reddit data; models are trained on non-Reddit data and only score Reddit accounts. See [docs/DATA_TERMS.md](docs/DATA_TERMS.md).
 
+**Reddit collection is paused. Bluesky is the live source.** [docs/SOURCES.md](docs/SOURCES.md) compares what each platform's terms allow. To collect from Bluesky (no account needed):
+`python -m ea bluesky --config config/bluesky_immigration.toml --minutes 20`, then the same `features` and later stages with that config.
+
 Have dump files instead? `python -m ea collect --posts-dump RS_2026-01.zst --comments-dump RC_2026-01.zst`.
 
 ## What each file does
@@ -72,6 +75,8 @@ Have dump files instead? `python -m ea collect --posts-dump RS_2026-01.zst --com
 | `config/immigration.toml` | The topic: subreddits, dates, title keywords, coded phrases, thresholds |
 | `ea/pseudonymize.py` | Username to keyed hash; spots self-declared bots |
 | `ea/collect.py` | Download, cut down to the minimum, load |
+| `ea/bluesky.py` | The same for Bluesky: listen to the public stream, count topic volume, store hashed threads, drop deleted posts |
+| `config/bluesky_immigration.toml` | The Bluesky topic: keywords for both topics, stream addresses, limits |
 | `ea/features.py` | Timing, near-duplicate text, co-engagement, coded-phrase bursts |
 | `ea/label.py` | The label questions and their allowed answers; labeling sheet with sampling weights; Cohen's kappa |
 | `ea/clusters.py` | Finds groups of accounts that act together |
