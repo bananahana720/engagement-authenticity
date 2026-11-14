@@ -1,6 +1,8 @@
 """Run one pipeline stage:  python -m ea <stage> [--config config/immigration.toml]
 
   volumes    count comments and posts per subreddit per month (needs internet)
+  topic-share  count on-topic threads and their comments per subreddit per month (needs internet)
+  seeds      fetch Reddit's 2018 list of suspended influence-operation accounts (needs internet)
   collect    download on-topic threads (needs internet)
   features   compute one row of signals per account
   sample     write a labeling sheet
@@ -13,13 +15,13 @@
 import argparse
 from pathlib import Path
 
-from ea import collect, evaluate, features, label, model, synthetic
+from ea import collect, evaluate, features, label, model, seeds, synthetic
 from ea.config import load_config, paths
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("stage", choices=["volumes", "collect", "features", "sample",
+    parser.add_argument("stage", choices=["volumes", "topic-share", "seeds", "collect", "features", "sample",
                                           "agreement", "train", "evaluate", "demo"])
     parser.add_argument("--config", default="config/immigration.toml")
     parser.add_argument("--only", nargs="*", help="collect: just these subreddits")
@@ -32,6 +34,10 @@ def main():
 
     if args.stage == "volumes":
         print("Wrote", collect.measure_volumes(cfg))
+    elif args.stage == "topic-share":
+        print("Wrote", collect.measure_topic_share(cfg))
+    elif args.stage == "seeds":
+        print("Wrote %d accounts to %s" % seeds.fetch_reddit_2018(cfg))
     elif args.stage == "collect":
         if args.posts_dump and args.comments_dump:
             collect.collect_from_dumps(cfg, args.posts_dump, args.comments_dump)

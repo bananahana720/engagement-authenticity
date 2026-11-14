@@ -22,7 +22,7 @@ filtered = [
 ]
 # City subreddits, for local spikes after enforcement operations. A starter guess:
 # change this list once you pick which operations to study.
-city = ["LosAngeles", "chicago", "Minneapolis", "nyc", "Portland", "CharlotteNC"]
+city = ["LosAngeles", "chicago", "Minneapolis", "nyc", "Portland", "Charlotte"]
 
 [topic]
 # Case-insensitive, matched on word boundaries against post titles.

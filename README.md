@@ -30,6 +30,8 @@ features, so `features` runs first.
 | Stage | Command | Reads | Writes |
 | --- | --- | --- | --- |
 | Measure volumes | `python -m ea volumes` | Arctic Shift API | `reports/immigration/volumes.csv` |
+| Measure topic share | `python -m ea topic-share` | Arctic Shift API | `reports/immigration/topic_share.csv` |
+| Seed accounts | `python -m ea seeds` | Arctic Shift wiki archive | `data/seeds/reddit_2018_suspicious*.csv` |
 | Collect | `python -m ea collect` | Arctic Shift API or dump files | `data/immigration/collected/<subreddit>/*.jsonl` |
 | Features | `python -m ea features` | collected | `data/immigration/features.csv`, `reports/immigration/phrase_spread.csv` |
 | Label | `python -m ea sample`, then `python -m ea agreement --sheets A.csv B.csv` | features | `data/immigration/labels/to_label.csv` |
@@ -55,7 +57,7 @@ nothing about real Reddit.
 
 Read [docs/DATA_TERMS.md](docs/DATA_TERMS.md) first.
 
-1. `python -m ea volumes` counts comments per subreddit per month. Look at the numbers before downloading anything: they decide which subreddits are practical.
+1. `python -m ea volumes` counts comments per subreddit per month, and `python -m ea topic-share` counts how many threads and comments match the topic keywords. Look at the numbers before downloading anything: they decide which subreddits are practical.
 2. `python -m ea collect --only immigration` downloads one subreddit. It is slow on purpose (one request a second to a free community service) and can be stopped and restarted.
 3. `python -m ea features`, then `python -m ea sample` to get a labeling sheet.
 4. Two people label the same sheet (columns `label`, `confidence`, `evidence`), then `python -m ea agreement`. Target kappa 0.6 or above before labeling more.

@@ -30,6 +30,7 @@ def paths(cfg):
         "predictions": data / "model" / "test_predictions.csv",
         "threshold": data / "model" / "threshold.json",
         "volumes": reports / "volumes.csv",
+        "topic_share": reports / "topic_share.csv",
         "phrase_spread": reports / "phrase_spread.csv",
         "evaluation": reports / "evaluation.md",
     }
