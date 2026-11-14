@@ -35,6 +35,7 @@ def paths(cfg):
         "reliability": reports / "reliability.png",
         "threshold": data / "model" / "threshold.json",
         "volumes": reports / "volumes.csv",
+        "topic_share": reports / "topic_share.csv",
         "phrase_spread": reports / "phrase_spread.csv",
         "evaluation": reports / "evaluation.md",
         "seeds": data / "labels" / "seeds.csv",      # accounts with a verified label, for the network stage

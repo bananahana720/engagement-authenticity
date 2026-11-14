@@ -6,7 +6,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from ea import clusters, collect, evaluate, features, label, metrics, model, synthetic
+from ea import clusters, collect, evaluate, features, label, metrics, model, seeds, synthetic
 from ea.config import load_config, paths
 from ea.pseudonymize import is_disclosed_bot, pseudonym
 
@@ -70,7 +70,9 @@ class FakeArcticShift:
         if "posts" in url:
             rows = [p for p in self.posts if p["subreddit"] == params["subreddit"]]
         else:
-            rows = [c for c in self.comments if c["link_id"] == "t3_" + params["link_id"]]
+            rows = [c for c in self.comments
+                    if ("link_id" in params and c["link_id"] == "t3_" + params["link_id"])
+                    or ("link_id" not in params and c["subreddit"] == params["subreddit"])]
         after = params.get("after")
         if isinstance(after, int):
             rows = [r for r in rows if r["created_utc"] > after]
@@ -106,6 +108,42 @@ def test_collect_keeps_only_on_topic_threads_and_resumes(cfg):
 
     collect.collect(cfg, session=fake, only=["politics"])            # second run adds nothing
     assert len(collect.load_collected(cfg)[1]) == 4
+
+
+def test_collect_takes_whole_subreddit_in_bulk_and_resumes(cfg):
+    t = 1767300000
+    posts = [{"id": f"p{i}", "subreddit": "immigration", "author": "u", "created_utc": t + i, "title": "Visa wait"}
+             for i in range(3)]
+    comments = [dict(RAW_COMMENT, id=f"c{i}", link_id=f"t3_p{i % 3}", parent_id=f"t3_p{i % 3}",
+                     created_utc=t + 100 + i) for i in range(5)]
+    fake = FakeArcticShift(posts, comments)
+    collect.collect(cfg, session=fake, only=["immigration"])
+    got_posts, got_comments = collect.load_collected(cfg)
+    assert len(got_posts) == 3 and len(got_comments) == 5
+    first_calls = fake.calls
+
+    collect.collect(cfg, session=fake, only=["immigration"])            # resume: nothing new, few calls
+    assert len(collect.load_collected(cfg)[1]) == 5
+    assert fake.calls - first_calls <= 4
+
+
+def test_topic_share_counts_on_topic_threads_without_storing_titles(cfg):
+    t = 1767300000
+    posts = [
+        {"id": "p1", "subreddit": "politics", "created_utc": t, "title": "ICE raid downtown", "num_comments": 40},
+        {"id": "p2", "subreddit": "politics", "created_utc": t + 10, "title": "Budget vote", "num_comments": 7},
+    ]
+    cfg["subreddits"] = {"all_threads": [], "filtered": ["politics"], "city": []}
+    out = collect.measure_topic_share(cfg, session=FakeArcticShift(posts, []))
+    share = pd.read_csv(out)
+    assert share.loc[0, "posts"] == 2 and share.loc[0, "on_topic_posts"] == 1
+    assert share.loc[0, "on_topic_comments_est"] == 40
+    assert "ICE" not in out.read_text()
+
+
+def test_seed_wiki_table_parses():
+    content = "Suspicious Accounts\r\n\r\n|Username|Karma|\r\n|-|-|\r\n|u/Some_one|-16|\r\n|u/two-2|0|\r\n|u/Big|2,591|\r\n"
+    assert seeds.parse_wiki_table(content) == [("Some_one", -16), ("two-2", 0), ("Big", 2591)]
 
 
 # ---------- features ----------
