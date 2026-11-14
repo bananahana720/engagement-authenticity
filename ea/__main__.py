@@ -14,6 +14,7 @@
   seeds      download and convert the 2018 disclosed accounts (use --config config/ira2018.toml)
   network    who-replies-to-whom measures, starting from the seed accounts
   network-demo  the network measures on made-up data with planted patterns
+  redteam    made-up sock-puppet networks at rising evasion levels: which signals survive?
 """
 
 import argparse
@@ -21,7 +22,8 @@ from pathlib import Path
 
 import json
 
-from ea import collect, evaluate, features, ira2018, label, model, network, seeds, synthetic, threads
+from ea import (collect, evaluate, features, ira2018, label, model, network, redteam, seeds,
+                synthetic, threads)
 from ea.config import load_config, paths
 
 
@@ -29,7 +31,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("stage", choices=["volumes", "topic-share", "seed-list", "collect", "features", "sample",
                                           "agreement", "train", "score", "evaluate", "demo",
-                                          "seeds", "threads", "network", "network-demo"])
+                                          "seeds", "threads", "network", "network-demo", "redteam"])
     parser.add_argument("--config", default="config/immigration.toml")
     parser.add_argument("--only", nargs="*", help="collect: just these subreddits")
     parser.add_argument("--posts-dump", help="collect: read posts from this dump file instead of the API")
@@ -37,6 +39,7 @@ def main():
     parser.add_argument("--sheets", nargs=2, metavar=("A.csv", "B.csv"), help="agreement: the two label sheets")
     parser.add_argument("--model", help="score: a model.joblib trained on non-Reddit data")
     parser.add_argument("--accounts", type=int, default=200, help="sample: how many accounts to draw")
+    parser.add_argument("--quick", action="store_true", help="redteam: small run to check the code")
     args = parser.parse_args()
     cfg = load_config(args.config)
 
@@ -84,6 +87,9 @@ def main():
         out, result = network.network_report(cfg)
         print(json.dumps(result, indent=2))
         print("Wrote", out)
+    elif args.stage == "redteam":
+        out = redteam.run(cfg, quick=args.quick)
+        print((out / "results.md").read_text())
 
 
 def run_demo(cfg):

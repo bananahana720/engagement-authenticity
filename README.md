@@ -53,6 +53,23 @@ The demo plants invented programs and coordinated rings among invented ordinary
 accounts and checks that the model finds the programs and the cluster detector finds the rings. It proves the code runs. It says
 nothing about real Reddit.
 
+## Red team: do the signals survive smarter sock puppets?
+
+```
+python -m ea redteam            # about 10 minutes on 4 cores
+python -m ea redteam --quick    # one minute, to check the code
+```
+
+Builds made-up worlds where LLM-driven sock-puppet networks hide among ordinary
+accounts, at five evasion levels (copy-paste bots, reworded text, human timing,
+sparse and distributed, patient operator), and measures which signals still find
+them at 90% precision. The background includes nine kinds of real account that
+must not be flagged (people who polish posts with AI, organic brigades, power
+users and more), and the report gives the false-flag rate on each.
+
+Results and how to read them: [docs/redteam/RESULTS.md](docs/redteam/RESULTS.md).
+All text is built from invented words, so nothing it writes could be posted anywhere.
+
 ## Run it on real data
 
 Read [docs/DATA_TERMS.md](docs/DATA_TERMS.md) first.
@@ -83,6 +100,9 @@ Have dump files instead? `python -m ea collect --posts-dump RS_2026-01.zst --com
 | `ea/synthetic.py` | Made-up data with known answers |
 | `ea/network.py` | Reply network around confirmed accounts: mixing, selectivity, relays, proximity test |
 | `ea/ira2018.py` | Downloads and converts the accounts Reddit disclosed in 2018 into hashed seed data |
+| `ea/network_features.py` | Cross-account signals: shared talking points, pivots, active days, arrival cohorts |
+| `ea/redteam_generate.py` | Made-up sock-puppet networks at five evasion levels, plus negative controls |
+| `ea/redteam.py` | The red-team experiment: which signals survive each level |
 
 ## How it is judged
 
