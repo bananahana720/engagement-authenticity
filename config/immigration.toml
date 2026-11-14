@@ -2,6 +2,7 @@
 # Everything the pipeline needs to know about the topic lives in this file.
 
 name = "immigration"
+source = "reddit"           # where the data comes from; decides whether models may be trained on it
 data_dir = "data/immigration"
 reports_dir = "reports/immigration"
 
@@ -68,5 +69,9 @@ min_duplicate_comments = 2          # near-duplicate comments between the two ac
 min_accounts = 3                    # smallest group that counts as a cluster
 
 [model]
+# Reddit's terms need Reddit's permission before training a model on Reddit data.
+# Until that permission exists, leave this false: "python -m ea train" will refuse,
+# and Reddit data is scored with a model trained on non-Reddit data.
+reddit_training_permitted = false
 min_precision = 0.90                # operating point: precision first, then report the recall it costs
 test_account_share = 0.3

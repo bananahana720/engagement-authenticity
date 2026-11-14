@@ -33,7 +33,7 @@ features, so `features` runs first.
 | Collect | `python -m ea collect` | Arctic Shift API or dump files | `data/immigration/collected/<subreddit>/*.jsonl` |
 | Features | `python -m ea features` | collected | `data/immigration/features.csv`, `data/immigration/clusters.csv`, `reports/immigration/phrase_spread.csv` |
 | Label | `python -m ea sample`, then `python -m ea agreement --sheets A.csv B.csv` | features | `data/immigration/labels/to_label.csv` |
-| Model | `python -m ea train` | features, `labels/labels.csv` | `data/immigration/model/` |
+| Model | `python -m ea score --model <model.joblib>` | features, a model trained on non-Reddit data | `data/immigration/model/` |
 | Evaluate | `python -m ea evaluate` | model output | `reports/immigration/evaluation.md` |
 
 Every stage reads the previous stage's files, so any stage can be rerun alone.
@@ -59,7 +59,9 @@ Read [docs/DATA_TERMS.md](docs/DATA_TERMS.md) first.
 2. `python -m ea collect --only immigration` downloads one subreddit. It is slow on purpose (one request a second to a free community service) and can be stopped and restarted.
 3. `python -m ea features`, then `python -m ea sample` to get a labeling sheet.
 4. Two people label the same sheet following [docs/LABELS.md](docs/LABELS.md) (columns `who_types`, `changed_hands`, `confidence`, `evidence`), then `python -m ea agreement`. Target kappa 0.6 or above on each question before labeling more.
-5. Save the agreed labels as `data/immigration/labels/labels.csv`, then `python -m ea train` and `python -m ea evaluate`.
+5. Save the agreed labels as `data/immigration/labels/labels.csv`, then `python -m ea score --model data/demo/model/model.joblib` and `python -m ea evaluate`.
+
+**No model is trained on Reddit data** until Reddit gives permission. `python -m ea train` refuses Reddit data; models are trained on non-Reddit data and only score Reddit accounts. See [docs/DATA_TERMS.md](docs/DATA_TERMS.md).
 
 Have dump files instead? `python -m ea collect --posts-dump RS_2026-01.zst --comments-dump RC_2026-01.zst`.
 
@@ -74,8 +76,13 @@ Have dump files instead? `python -m ea collect --posts-dump RS_2026-01.zst --com
 | `ea/label.py` | The label questions and their allowed answers; labeling sheet with sampling weights; Cohen's kappa |
 | `ea/clusters.py` | Finds groups of accounts that act together |
 | `ea/model.py` | Learns "is software typing?"; gradient-boosted trees, calibrated; split by time and by account |
-| `ea/evaluate.py` | Precision, recall, PR-AUC, calibration, checks by answer and by subreddit; cluster counts and reach |
+| `ea/metrics.py` | Crossover error rate, software caught at a fixed false-flag rate, confidence ranges, calibration |
+| `ea/evaluate.py` | The aggregate report: those metrics, checks by subreddit and control group, cluster counts and reach |
 | `ea/synthetic.py` | Made-up data with known answers |
+
+## How it is judged
+
+A **false flag** is a person called software. A **miss** is software passed as a person. The headline for comparing models is the crossover error rate; the operating KPI is the share of software caught when at most 1% of people are falsely flagged. Details: [docs/METRICS.md](docs/METRICS.md).
 
 ## Labels: three questions
 

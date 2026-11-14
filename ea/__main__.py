@@ -5,7 +5,8 @@
   features   compute one row of signals per account
   sample     write a labeling sheet
   agreement  compare two labelers' sheets
-  train      fit the model on labeled accounts
+  train      fit the model on labeled accounts (refused for Reddit data, see docs/DATA_TERMS.md)
+  score      score accounts with a model trained elsewhere: --model path/to/model.joblib
   evaluate   write the aggregate report
   demo       run features -> sample -> train -> evaluate on made-up data
 """
@@ -20,12 +21,13 @@ from ea.config import load_config, paths
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("stage", choices=["volumes", "collect", "features", "sample",
-                                          "agreement", "train", "evaluate", "demo"])
+                                          "agreement", "train", "score", "evaluate", "demo"])
     parser.add_argument("--config", default="config/immigration.toml")
     parser.add_argument("--only", nargs="*", help="collect: just these subreddits")
     parser.add_argument("--posts-dump", help="collect: read posts from this dump file instead of the API")
     parser.add_argument("--comments-dump", help="collect: read comments from this dump file")
     parser.add_argument("--sheets", nargs=2, metavar=("A.csv", "B.csv"), help="agreement: the two label sheets")
+    parser.add_argument("--model", help="score: a model.joblib trained on non-Reddit data")
     parser.add_argument("--accounts", type=int, default=200, help="sample: how many accounts to draw")
     args = parser.parse_args()
     cfg = load_config(args.config)
@@ -44,7 +46,12 @@ def main():
     elif args.stage == "agreement":
         print(label.agreement(*args.sheets).round(2).to_string(index=False))
     elif args.stage == "train":
-        print(f"Scored {len(model.train(cfg))} held-out test accounts")
+        try:
+            print(f"Scored {len(model.train(cfg))} held-out test accounts")
+        except model.TrainingNotAllowed as refusal:
+            raise SystemExit(f"Not trained. {refusal}")
+    elif args.stage == "score":
+        print(f"Scored {len(model.score(cfg, args.model))} accounts with {args.model}")
     elif args.stage == "evaluate":
         print("Wrote", evaluate.evaluate(cfg))
     elif args.stage == "demo":
@@ -53,7 +60,7 @@ def main():
 
 def run_demo(cfg):
     """The whole pipeline on synthetic data, in its own folders."""
-    cfg = dict(cfg, name="demo (synthetic data, not real Reddit)",
+    cfg = dict(cfg, name="demo (synthetic data, not real Reddit)", source="synthetic",
                data_dir=Path("data/demo"), reports_dir=Path("reports/demo"))
     print("Made %d posts, %d comments, %d labeled accounts" % synthetic.make_synthetic(cfg))
     features.build_features(cfg)

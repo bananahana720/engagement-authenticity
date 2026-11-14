@@ -6,7 +6,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from ea import clusters, collect, evaluate, features, label, model, synthetic
+from ea import clusters, collect, evaluate, features, label, metrics, model, synthetic
 from ea.config import load_config, paths
 from ea.pseudonymize import is_disclosed_bot, pseudonym
 
@@ -17,6 +17,7 @@ def cfg(tmp_path, monkeypatch):
     cfg = load_config(Path(__file__).parent.parent / "config" / "immigration.toml")
     cfg["data_dir"], cfg["reports_dir"] = tmp_path / "data", tmp_path / "reports"
     cfg["collect"]["seconds_between_requests"] = 0
+    cfg["source"] = "synthetic"         # tests use made-up data; the real config says "reddit"
     return cfg
 
 
@@ -216,6 +217,71 @@ def test_clusters_need_repeated_links_and_enough_accounts(cfg):
     assert found["quiet"] == "not_tested"                                    # too little activity
 
 
+# ---------- metrics ----------
+
+def test_crossover_error_rate():
+    y = [0] * 10 + [1] * 10
+    assert metrics.crossover_error_rate(y, [0.1] * 10 + [0.9] * 10) == 0.0            # perfect separation
+    one_each_way = [0.1] * 9 + [0.95] + [0.05] + [0.9] * 9                            # one person high, one program low
+    assert metrics.crossover_error_rate(y, one_each_way) == pytest.approx(0.1)
+    assert metrics.crossover_error_rate(y, [0.5] * 20) == pytest.approx(0.5)          # no information
+
+
+def test_recall_at_false_flag_rate():
+    y = [0] * 100 + [1] * 10
+    score = [0.1] * 98 + [0.8, 0.8] + [0.9] * 6 + [0.7] * 4       # two people score above four programs
+    assert metrics.recall_at_false_flag_rate(y, score, 0.01) == pytest.approx(0.6)    # no false flags allowed below 0.8
+    assert metrics.recall_at_false_flag_rate(y, score, 0.02) == pytest.approx(1.0)
+    assert metrics.enough_people_for(0.01, 100) and not metrics.enough_people_for(0.001, 100)
+
+
+def test_precision_at_prevalence():
+    # 1% of accounts are software, all caught, 1% of people falsely flagged: half the flags are wrong.
+    assert metrics.precision_at_prevalence(1.0, 0.01, 0.01) == pytest.approx(0.5, abs=0.01)
+
+
+def test_bootstrap_interval_contains_the_estimate():
+    y = [0] * 50 + [1] * 50
+    score = [i / 100 for i in range(100)]
+    score[45], score[55] = score[55], score[45]
+    low, high = metrics.bootstrap_interval(metrics.crossover_error_rate, y, score, rounds=200)
+    assert low <= metrics.crossover_error_rate(y, score) <= high
+
+
+# ---------- the Reddit training rule ----------
+
+def test_training_on_reddit_data_is_refused(cfg):
+    synthetic.make_synthetic(cfg)
+    features.build_features(cfg)
+    cfg["source"] = "reddit"
+    with pytest.raises(model.TrainingNotAllowed):
+        model.train(cfg)
+    assert not paths(cfg)["model"].exists()                      # nothing was fitted or saved
+
+
+def test_reddit_data_can_be_scored_with_a_model_trained_elsewhere(cfg, tmp_path):
+    synthetic.make_synthetic(cfg)
+    features.build_features(cfg)
+    model.train(cfg)                                             # trained on synthetic data
+    trained_elsewhere = paths(cfg)["model"]
+
+    reddit = dict(cfg, source="reddit")
+    predictions = model.score(reddit, trained_elsewhere)
+    assert len(predictions) and {"score", "flagged"} <= set(predictions.columns)
+    assert "Model trained on: synthetic data. Scored here: reddit data." in evaluate.evaluate(reddit).read_text()
+
+
+def test_a_model_trained_on_reddit_is_refused_for_scoring(cfg):
+    synthetic.make_synthetic(cfg)
+    features.build_features(cfg)
+    cfg["source"] = "reddit"
+    cfg["model"]["reddit_training_permitted"] = True             # as if permission had been granted
+    model.train(cfg)
+    cfg["model"]["reddit_training_permitted"] = False            # permission withdrawn
+    with pytest.raises(model.TrainingNotAllowed):
+        model.score(cfg, paths(cfg)["model"])
+
+
 # ---------- the whole pipeline ----------
 
 def test_end_to_end_on_synthetic_data(cfg):
@@ -228,9 +294,10 @@ def test_end_to_end_on_synthetic_data(cfg):
     assert {"train", "test"} == set(table["window"])
     assert sheet["who_types"].eq("").all() and sheet["changed_hands"].eq("").all()   # arrives unlabeled
     assert "stratum" not in pd.read_csv(paths(cfg)["to_label"]).columns
-    # Planted programs are found, and no planted person is flagged.
+    # Most planted programs are found, and very few planted people are flagged.
+    # (The synthetic data includes evasive programs and look-alike people, so not perfect.)
     assert predictions.loc[predictions["target"] == 1, "flagged"].mean() > 0.6
-    assert predictions.loc[predictions["target"] == 0, "flagged"].mean() == 0
+    assert predictions.loc[predictions["target"] == 0, "flagged"].mean() < 0.05
     # Planted rings are found by the cluster detector, and ordinary accounts are not swept in.
     found = pd.read_csv(paths(cfg)["clusters"]).set_index("author_hash")
     found = found[found["window"] == "train"]["cluster"]
@@ -238,5 +305,7 @@ def test_end_to_end_on_synthetic_data(cfg):
     ordinary = found[found.index.str.startswith("ordinary")]
     assert (ring == "in_cluster").mean() > 0.9
     assert (ordinary == "in_cluster").mean() < 0.02
+    assert "crossover error rate" in report and paths(cfg)["error_curve"].exists()
+    assert "power users" in report                                      # control-group table is filled
     # The report is aggregate: no account hash appears in it.
     assert not any(h in report for h in predictions["author_hash"])

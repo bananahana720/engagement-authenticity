@@ -65,6 +65,23 @@ def make_synthetic(cfg, n_ordinary=300, n_automated=30, n_rings=3, ring_size=10,
             body = str(rng.choice(templates)) + " " + str(rng.choice(WORDS))
             add(f"automated{n:04d}", posts[i], posts[i]["created_utc"] + rng.integers(5, 25), body)
 
+    # Harder cases, so the error rates in the demo are not all zero.
+    groups = {}
+    for n in range(20):          # software that hides: human-like delays, own wording, pauses 4 hours a day
+        name = f"evasive{n:04d}"
+        labels[name], groups[name] = "program", ("red_team", "slow, sleeping software")
+        wake_hour = int(rng.integers(0, 24))
+        for i in rng.choice(n_threads, size=int(rng.integers(40, 90)), replace=False):
+            when = posts[i]["created_utc"] + rng.lognormal(np.log(600), 1.0)
+            hours_awake = ((when // 3600) - wake_hour) % 24
+            if hours_awake < 20:
+                add(name, posts[i], when, own_words())
+    for n in range(40):          # people who look like software: awake at all hours, quick to reply
+        name = f"poweruser{n:04d}"
+        labels[name], groups[name] = "person", ("negative_control", "power users")
+        for i in rng.choice(n_threads, size=int(rng.integers(50, 90)), replace=False):
+            add(name, posts[i], posts[i]["created_utc"] + rng.lognormal(np.log(1200), 1.0), own_words())
+
     for ring in range(n_rings):
         members = [f"ring{ring}member{m:02d}" for m in range(ring_size)]
         labels.update({m: "person" for m in members})     # people; the ring is for the cluster detector
@@ -90,4 +107,6 @@ def make_synthetic(cfg, n_ordinary=300, n_automated=30, n_rings=3, ring_size=10,
     pd.DataFrame({"author_hash": list(labels), "who_types": list(labels.values()),
                   "changed_hands": "no_sign", "confidence": 3, "evidence": "synthetic: generated with this label"}
                  ).to_csv(label_file, index=False)
+    pd.DataFrame([{"author_hash": a, "kind": kind, "group": group} for a, (kind, group) in groups.items()]
+                 ).to_csv(paths(cfg)["groups"], index=False)
     return len(posts), len(comments), len(labels)
