@@ -4,6 +4,8 @@
   topic-share  count on-topic threads and their comments per subreddit per month (Reddit: paused, refuses)
   seed-list  fetch Reddit's 2018 list of suspended influence-operation accounts (Reddit: paused, refuses)
   collect    download on-topic threads (Reddit: paused, refuses)
+  bluesky    listen to Bluesky's public stream for --minutes, then store on-topic threads:
+             --config config/bluesky_immigration.toml (needs internet)
   features   compute one row of signals per account
   sample     write a labeling sheet
   agreement  compare two labelers' sheets
@@ -22,20 +24,21 @@ from pathlib import Path
 
 import json
 
-from ea import (collect, evaluate, features, ira2018, label, model, network, redteam, seeds,
+from ea import (bluesky, collect, evaluate, features, ira2018, label, model, network, redteam, seeds,
                 synthetic, threads)
 from ea.config import CollectionPaused, load_config, paths
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("stage", choices=["volumes", "topic-share", "seed-list", "collect", "features", "sample",
+    parser.add_argument("stage", choices=["volumes", "topic-share", "seed-list", "collect", "bluesky", "features", "sample",
                                           "agreement", "train", "score", "evaluate", "demo",
                                           "seeds", "threads", "network", "network-demo", "redteam"])
     parser.add_argument("--config", default="config/immigration.toml")
     parser.add_argument("--only", nargs="*", help="collect: just these subreddits")
     parser.add_argument("--posts-dump", help="collect: read posts from this dump file instead of the API")
     parser.add_argument("--comments-dump", help="collect: read comments from this dump file")
+    parser.add_argument("--minutes", type=float, default=20, help="bluesky: how long to listen")
     parser.add_argument("--sheets", nargs=2, metavar=("A.csv", "B.csv"), help="agreement: the two label sheets")
     parser.add_argument("--model", help="score: a model.joblib trained on non-Reddit data")
     parser.add_argument("--accounts", type=int, default=200, help="sample: how many accounts to draw")
@@ -54,6 +57,10 @@ def main():
             collect.collect_from_dumps(cfg, args.posts_dump, args.comments_dump)
         else:
             collect.collect(cfg, only=args.only)
+    elif args.stage == "bluesky":
+        if cfg["source"] != "bluesky":
+            raise SystemExit("Use a Bluesky config: --config config/bluesky_immigration.toml")
+        print(bluesky.collect(cfg, args.minutes).to_string(index=False))
     elif args.stage == "features":
         print(f"Wrote {len(features.build_features(cfg))} rows to {paths(cfg)['features']}")
     elif args.stage == "sample":

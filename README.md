@@ -76,6 +76,9 @@ All text is built from invented words, so nothing it writes could be posted anyw
 stages, refuse to run and fetch nothing while the configs say
 `reddit_collection_permitted = false`. Read [docs/DATA_TERMS.md](docs/DATA_TERMS.md) first.
 
+**Bluesky is the live source.** [docs/SOURCES.md](docs/SOURCES.md) compares what each platform's terms allow. To collect from Bluesky (no account needed), replace steps 1 and 2 with
+`python -m ea bluesky --config config/bluesky_immigration.toml --minutes 20`, then run step 3 onward with that config.
+
 1. `python -m ea volumes` counts comments per subreddit per month, and `python -m ea topic-share` counts how many threads and comments match the topic keywords. Look at the numbers before downloading anything: they decide which subreddits are practical.
 2. `python -m ea collect --only immigration` downloads one subreddit. It is slow on purpose (one request a second to a free community service) and can be stopped and restarted.
 3. `python -m ea features`, then `python -m ea sample` to get a labeling sheet.
@@ -93,6 +96,8 @@ Have dump files instead? `python -m ea collect --posts-dump RS_2026-01.zst --com
 | `config/immigration.toml` | The topic: subreddits, dates, title keywords, coded phrases, thresholds |
 | `ea/pseudonymize.py` | Username to keyed hash; spots self-declared bots |
 | `ea/collect.py` | Download, cut down to the minimum, load |
+| `ea/bluesky.py` | The same for Bluesky: listen to the public stream, count topic volume, store hashed threads, drop deleted posts |
+| `config/bluesky_immigration.toml` | The Bluesky topic: keywords for both topics, stream addresses, limits |
 | `ea/features.py` | Timing, near-duplicate text, co-engagement, coded-phrase bursts |
 | `ea/label.py` | The label questions and their allowed answers; labeling sheet with sampling weights; Cohen's kappa |
 | `ea/clusters.py` | Finds groups of accounts that act together |
