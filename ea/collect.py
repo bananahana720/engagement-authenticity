@@ -18,7 +18,7 @@ import time
 import pandas as pd
 import requests
 
-from ea.config import all_subreddits, paths
+from ea.config import all_subreddits, check_collection_allowed, paths
 from ea.pseudonymize import NO_AUTHOR, is_disclosed_bot, load_key, pseudonym
 
 USER_AGENT = "engagement-authenticity-research/0.1"
@@ -99,6 +99,7 @@ def get_json(session, url, params, tries=5):
 
 def measure_volumes(cfg, session=None):
     """Monthly comment and post counts per subreddit. Cheap: one call per number."""
+    check_collection_allowed(cfg)
     session = session or requests.Session()
     base = cfg["collect"]["api_base"]
     rows = []
@@ -115,8 +116,44 @@ def measure_volumes(cfg, session=None):
     return out
 
 
+def measure_topic_share(cfg, session=None):
+    """How much of each subreddit is on topic, per month, before downloading anything.
+
+    Pages through every post's id, time, title and comment count. Titles are matched
+    in memory and never written. Comment counts are Reddit's own num_comments as
+    Arctic Shift last saw it, so the on-topic comment figure is an estimate.
+    """
+    check_collection_allowed(cfg)
+    session = session or requests.Session()
+    base = cfg["collect"]["api_base"]
+    wait = cfg["collect"]["seconds_between_requests"]
+    pattern = topic_pattern(cfg["topic"]["title_keywords"])
+    rows = []
+    for sub in all_subreddits(cfg):
+        keep_all = sub in cfg["subreddits"]["all_threads"]
+        query = {"subreddit": sub, "after": cfg["start"], "before": cfg["end"],
+                 "fields": "id,created_utc,title,num_comments"}
+        for post in fetch_pages(session, f"{base}/api/posts/search", query, wait):
+            on_topic = keep_all or bool(pattern.search(post.get("title") or ""))
+            month = pd.Timestamp(int(post["created_utc"]), unit="s", tz="UTC").strftime("%Y-%m")
+            rows.append({"subreddit": sub, "month": month, "on_topic": on_topic,
+                         "num_comments": int(post.get("num_comments") or 0)})
+        print(f"r/{sub}: {sum(r['subreddit'] == sub for r in rows)} posts scanned")
+    table = pd.DataFrame(rows)
+    table["on_topic_comments"] = table["num_comments"].where(table["on_topic"], 0)
+    share = (table.groupby(["subreddit", "month"])
+             .agg(posts=("on_topic", "size"), on_topic_posts=("on_topic", "sum"),
+                  on_topic_comments_est=("on_topic_comments", "sum"))
+             .reset_index())
+    out = paths(cfg)["topic_share"]
+    out.parent.mkdir(parents=True, exist_ok=True)
+    share.to_csv(out, index=False)
+    return out
+
+
 def collect(cfg, session=None, only=None):
     """Download on-topic threads for every subreddit in the config."""
+    check_collection_allowed(cfg)
     session = session or requests.Session()
     key = load_key()
     base = cfg["collect"]["api_base"]
@@ -128,6 +165,12 @@ def collect(cfg, session=None, only=None):
         folder = paths(cfg)["collected"] / sub
         folder.mkdir(parents=True, exist_ok=True)
         keep_all = sub in cfg["subreddits"]["all_threads"]
+        if keep_all:
+            # Every thread counts: page the whole subreddit's comments in time order,
+            # about a thousand per call, instead of one call per thread.
+            collect_whole_subreddit(session, base, sub, folder, window, key, wait)
+            print(f"r/{sub}: done")
+            continue
         done = already_collected(folder / "posts.jsonl")
 
         with open(folder / "posts.jsonl", "a") as posts_file, \
@@ -144,6 +187,34 @@ def collect(cfg, session=None, only=None):
                 # The post is written last, so a post on disk means its comments are complete.
                 write_line(posts_file, minimize(raw_post, key, "post") or deleted_post(raw_post))
         print(f"r/{sub}: done")
+
+
+def collect_whole_subreddit(session, base, sub, folder, window, key, wait):
+    """Posts, then comments, for one subreddit and time window. Resumes from the latest time on disk."""
+    for kind, endpoint in (("post", "posts"), ("comment", "comments")):
+        path = folder / f"{endpoint}.jsonl"
+        done, latest = already_collected(path), latest_time(path)
+        query = dict(window, subreddit=sub)
+        if latest is not None:
+            query["after"] = latest - 1
+        with open(path, "a") as out:
+            for raw in fetch_pages(session, f"{base}/api/{endpoint}/search", query, wait):
+                if raw["id"] in done:
+                    continue
+                small = minimize(raw, key, kind)
+                if small is None and kind == "post":
+                    small = deleted_post(raw)
+                write_line(out, small)
+                done.add(raw["id"])
+
+
+def latest_time(path):
+    """The newest created_utc in a jsonl file, or None when there is nothing yet."""
+    if not path.exists():
+        return None
+    with open(path) as f:
+        times = [json.loads(line)["created_utc"] for line in f if line.strip()]
+    return max(times) if times else None
 
 
 def deleted_post(raw_post):
@@ -185,6 +256,7 @@ def read_dump(path):
 
 def collect_from_dumps(cfg, posts_path, comments_path):
     """Same output as collect(), from one posts dump and one comments dump."""
+    check_collection_allowed(cfg)
     key = load_key()
     pattern = topic_pattern(cfg["topic"]["title_keywords"])
     subs = {s.lower(): s for s in all_subreddits(cfg)}
@@ -219,10 +291,9 @@ def append(cfg, sub, kind, record):
 def load_collected(cfg):
     """Return (posts, comments) DataFrames for everything collected so far."""
     root = paths(cfg)["collected"]
-    posts = read_all(root.glob("*/posts.jsonl"))
-    comments = read_all(root.glob("*/comments.jsonl"))
+    posts = read_all(root.glob("*/posts.jsonl")).drop_duplicates("id")
+    comments = read_all(root.glob("*/comments.jsonl")).drop_duplicates("id")
     for table in (posts, comments):
-        table.drop_duplicates("id", inplace=True)
         table["time"] = pd.to_datetime(table["created_utc"], unit="s", utc=True)
     return posts, comments
 

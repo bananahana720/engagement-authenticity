@@ -37,7 +37,7 @@ class TrainingNotAllowed(Exception):
 
 def check_training_allowed(source, cfg):
     """Stop before any model sees Reddit rows, unless the config records Reddit's permission."""
-    if source == "reddit" and not cfg["model"].get("reddit_training_permitted", False):
+    if source == "reddit" and not cfg.get("model", {}).get("reddit_training_permitted", False):
         raise TrainingNotAllowed(
             "This data comes from Reddit, and Reddit has not given permission to train models on it. "
             "Train on non-Reddit data instead and score this data with: "

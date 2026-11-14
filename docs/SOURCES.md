@@ -108,7 +108,7 @@ account. Its declared labels include five that bear on this project:
 
 The collector keeps the labels on each stored account in `labels.jsonl`, apart from
 the features, with the account hashed. A label an account puts on itself is marked as
-such. Labels are possible ground truth only; they are never a feature, or the model
+such. A labeler other than Bluesky's own service is stored hashed, since one person may run it. Labels are possible ground truth only; they are never a feature, or the model
 would learn to copy Bluesky's moderators.
 
 How many accounts carry these labels, and how often Bluesky withdraws one, is being

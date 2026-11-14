@@ -23,7 +23,7 @@ filtered = [
 ]
 # City subreddits, for local spikes after enforcement operations. A starter guess:
 # change this list once you pick which operations to study.
-city = ["LosAngeles", "chicago", "Minneapolis", "nyc", "Portland", "CharlotteNC"]
+city = ["LosAngeles", "chicago", "Minneapolis", "nyc", "Portland", "Charlotte"]
 
 [topic]
 # Case-insensitive, matched on word boundaries against post titles.
@@ -49,6 +49,9 @@ enforcement_opposing = [
 ]
 
 [collect]
+# Reddit collection is paused (docs/DATA_TERMS.md). While this is false, the volumes,
+# topic-share, seed-list and collect stages refuse and fetch nothing.
+reddit_collection_permitted = false
 api_base = "https://arctic-shift.photon-reddit.com"
 seconds_between_requests = 1.0      # a free community service: stay slow
 

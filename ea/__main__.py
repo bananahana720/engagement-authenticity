@@ -1,7 +1,9 @@
 """Run one pipeline stage:  python -m ea <stage> [--config config/immigration.toml]
 
-  volumes    count comments and posts per subreddit per month (needs internet)
-  collect    download on-topic threads (needs internet)
+  volumes    count comments and posts per subreddit per month (Reddit: paused, refuses)
+  topic-share  count on-topic threads and their comments per subreddit per month (Reddit: paused, refuses)
+  seed-list  fetch Reddit's 2018 list of suspended influence-operation accounts (Reddit: paused, refuses)
+  collect    download on-topic threads (Reddit: paused, refuses)
   bluesky    listen to Bluesky's public stream for --minutes, then store on-topic threads:
              --config config/bluesky_immigration.toml (needs internet)
   features   compute one row of signals per account
@@ -11,19 +13,27 @@
   score      score accounts with a model trained elsewhere: --model path/to/model.joblib
   evaluate   write the aggregate report
   demo       run features -> sample -> train -> evaluate on made-up data
+  seeds      download and convert the 2018 disclosed accounts (use --config config/ira2018.toml)
+  network    who-replies-to-whom measures, starting from the seed accounts
+  network-demo  the network measures on made-up data with planted patterns
+  redteam    made-up sock-puppet networks at rising evasion levels: which signals survive?
 """
 
 import argparse
 from pathlib import Path
 
-from ea import bluesky, collect, evaluate, features, label, model, synthetic
-from ea.config import load_config, paths
+import json
+
+from ea import (bluesky, collect, evaluate, features, ira2018, label, model, network, redteam, seeds,
+                synthetic, threads)
+from ea.config import CollectionPaused, load_config, paths
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("stage", choices=["volumes", "collect", "bluesky", "features", "sample",
-                                          "agreement", "train", "score", "evaluate", "demo"])
+    parser.add_argument("stage", choices=["volumes", "topic-share", "seed-list", "collect", "bluesky", "features", "sample",
+                                          "agreement", "train", "score", "evaluate", "demo",
+                                          "seeds", "threads", "network", "network-demo", "redteam"])
     parser.add_argument("--config", default="config/immigration.toml")
     parser.add_argument("--only", nargs="*", help="collect: just these subreddits")
     parser.add_argument("--posts-dump", help="collect: read posts from this dump file instead of the API")
@@ -32,11 +42,16 @@ def main():
     parser.add_argument("--sheets", nargs=2, metavar=("A.csv", "B.csv"), help="agreement: the two label sheets")
     parser.add_argument("--model", help="score: a model.joblib trained on non-Reddit data")
     parser.add_argument("--accounts", type=int, default=200, help="sample: how many accounts to draw")
+    parser.add_argument("--quick", action="store_true", help="redteam: small run to check the code")
     args = parser.parse_args()
     cfg = load_config(args.config)
 
     if args.stage == "volumes":
         print("Wrote", collect.measure_volumes(cfg))
+    elif args.stage == "topic-share":
+        print("Wrote", collect.measure_topic_share(cfg))
+    elif args.stage == "seed-list":
+        print("Wrote %d accounts to %s" % seeds.fetch_reddit_2018(cfg))
     elif args.stage == "collect":
         if args.posts_dump and args.comments_dump:
             collect.collect_from_dumps(cfg, args.posts_dump, args.comments_dump)
@@ -63,6 +78,25 @@ def main():
         print("Wrote", evaluate.evaluate(cfg))
     elif args.stage == "demo":
         run_demo(cfg)
+    elif args.stage == "seeds":
+        ira2018.download(cfg)
+        print("Wrote %d posts, %d comments, %d seed accounts" % ira2018.convert(cfg))
+    elif args.stage == "threads":
+        print("Fetched %d threads" % threads.collect_threads(cfg))
+    elif args.stage == "network":
+        out, result = network.network_report(cfg)
+        print(json.dumps(result, indent=2))
+        print("Wrote", out)
+    elif args.stage == "network-demo":
+        cfg = dict(cfg, name="network demo (synthetic data)",
+                   data_dir=Path("data/network_demo"), reports_dir=Path("reports/network_demo"))
+        print("Made %d posts, %d comments, %d seed accounts" % synthetic.make_synthetic_network(cfg))
+        out, result = network.network_report(cfg)
+        print(json.dumps(result, indent=2))
+        print("Wrote", out)
+    elif args.stage == "redteam":
+        out = redteam.run(cfg, quick=args.quick)
+        print((out / "results.md").read_text())
 
 
 def run_demo(cfg):
@@ -77,4 +111,7 @@ def run_demo(cfg):
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except CollectionPaused as refusal:
+        raise SystemExit(str(refusal))

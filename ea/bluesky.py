@@ -45,6 +45,10 @@ COMMUNITY = "bluesky"       # fills the "subreddit" column the later stages grou
 # or a "bot" label the account put on itself. Narrow on purpose, like the Reddit rule.
 DISCLOSED_BOT_HANDLE = re.compile(r"(?i)[-_]bot$")
 
+# Bluesky's own moderation service. Its identifier is stored as is. Any other labeler
+# could be run by one person, so its identifier is hashed like an account's.
+BLUESKY_MODERATION = "did:plc:ar7c4by46qjdydhdevvrndac"
+
 
 # ---------- reading the stream ----------
 
@@ -231,8 +235,14 @@ def account_labels(post, key):
     author = post["author"]
     return [{"author_hash": pseudonym(author["did"], key), "label": label.get("val"),
              "self_applied": label.get("src") == author["did"],
-             "labeler": "" if label.get("src") == author["did"] else label.get("src", "")}
+             "labeler": labeler_name(label.get("src", ""), author["did"], key)}
             for label in author.get("labels") or [] if not label.get("neg")]
+
+
+def labeler_name(source, author, key):
+    if source == author:
+        return ""
+    return "bluesky-moderation" if source == BLUESKY_MODERATION else pseudonym(source, key)
 
 
 # ---------- the whole run ----------
