@@ -1,0 +1,10 @@
+# Seed set: the 944 accounts Reddit disclosed in April 2018 (see ea/ira2018.py).
+# Used by the network stage only. It is historical data for finding patterns,
+# not a topic sample.
+
+name = "ira2018"
+data_dir = "data/ira2018"
+reports_dir = "reports/ira2018"
+
+[source]
+base_url = "https://raw.githubusercontent.com/ALCC01/reddit-suspicious-accounts/master"

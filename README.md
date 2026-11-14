@@ -79,6 +79,8 @@ Have dump files instead? `python -m ea collect --posts-dump RS_2026-01.zst --com
 | `ea/metrics.py` | Crossover error rate, software caught at a fixed false-flag rate, confidence ranges, calibration |
 | `ea/evaluate.py` | The aggregate report: those metrics, checks by subreddit and control group, cluster counts and reach |
 | `ea/synthetic.py` | Made-up data with known answers |
+| `ea/network.py` | Reply network around confirmed accounts: mixing, selectivity, relays, proximity test |
+| `ea/ira2018.py` | Downloads and converts the accounts Reddit disclosed in 2018 into hashed seed data |
 
 ## How it is judged
 
@@ -107,6 +109,35 @@ Motive is never labeled. Full guide and checklist: [docs/LABELS.md](docs/LABELS.
 
 Coded phrases are tracked from both sides with equal-sized lists and merged before
 any feature is computed, so no feature can tell which list a phrase came from.
+
+## The reply network (who answers whom)
+
+Starts from accounts already confirmed as inauthentic ("seeds") and measures the
+web of replies around them. Descriptive statistics only: nothing is trained.
+
+```
+python -m ea network-demo                          # made-up data with planted patterns
+python -m ea seeds   --config config/ira2018.toml  # the 944 accounts Reddit disclosed in 2018 (public domain copy)
+python -m ea network --config config/ira2018.toml  # writes reports/ira2018/network.json
+```
+
+| Measure | Question | How |
+| --- | --- | --- |
+| Mixing | Do seeds aim their replies at other seeds? | Share of seed replies that hit a seed, against a shuffle of partners within each subreddit |
+| Seed web | Is the seed-to-seed web tight? | Pairs, reciprocity, clustering, against the same shuffle |
+| Selectivity | Does an account keep answering the same few people? | Number of targets, top target's share, spread |
+| Range and role | Is it narrow in where it acts and what it does? | Subreddits used, top subreddit's share, posts only / comments only |
+| Relays | Do accounts pass the same link along? | Same link from 2+ accounts within 24 hours |
+| Proximity | Would a net cast from known seeds catch the right accounts? | Hide half the seeds, flag the contacts of the rest, report precision and recall |
+
+To run it on any collected topic, put the confirmed accounts' hashes in
+`data/<topic>/labels/seeds.csv` (column `author_hash`) and run `python -m ea network`.
+
+Two limits to keep in mind. The 2018 data holds only what the disclosed accounts
+wrote, so the mixing test cannot run on it (there are no replies from anyone
+else to shuffle against) and there is no comparison group. And being close to a
+seed is evidence for a score, never a label: on the 2018 accounts, flagging
+whoever three or more known seeds replied to was right 21% of the time.
 
 ## Not built yet
 
