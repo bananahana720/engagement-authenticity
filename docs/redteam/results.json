@@ -1,0 +1,577 @@
+{
+  "levels": [
+    {
+      "key": "naive",
+      "name": "Naive bots",
+      "text": "copy",
+      "timing": "robotic",
+      "spread": "swarm",
+      "operator": "hasty"
+    },
+    {
+      "key": "style",
+      "name": "+ human-style text",
+      "text": "reword",
+      "timing": "robotic",
+      "spread": "swarm",
+      "operator": "hasty"
+    },
+    {
+      "key": "jitter",
+      "name": "+ human timing",
+      "text": "reword",
+      "timing": "human",
+      "spread": "swarm",
+      "operator": "hasty"
+    },
+    {
+      "key": "sparse",
+      "name": "+ sparse and distributed",
+      "text": "reword",
+      "timing": "human",
+      "spread": "sparse",
+      "operator": "hasty"
+    },
+    {
+      "key": "patient",
+      "name": "+ patient operator",
+      "text": "reword",
+      "timing": "human",
+      "spread": "sparse",
+      "operator": "patient"
+    }
+  ],
+  "min_precision": 0.9,
+  "quick": false,
+  "accounts_per_world": 2080,
+  "puppets_per_world": 80,
+  "campaign_comments_per_world": [
+    1703,
+    1835,
+    1790,
+    535,
+    572
+  ],
+  "families": [
+    {
+      "name": "Sleep gap and reply speed",
+      "new": false,
+      "recall": [
+        1.0,
+        0.9916666666666667,
+        0.0,
+        0.008333333333333333,
+        0.004166666666666667
+      ],
+      "pr_auc": [
+        1.0,
+        0.9919871794871794,
+        0.1073322618291949,
+        0.11752954255474807,
+        0.08456841210108468
+      ]
+    },
+    {
+      "name": "Near-copy wording",
+      "new": false,
+      "recall": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "pr_auc": [
+        1.0,
+        0.04185582981900587,
+        0.04185582981900587,
+        0.04092099270572768,
+        0.041275795906245034
+      ]
+    },
+    {
+      "name": "Same thread within minutes",
+      "new": false,
+      "recall": [
+        0.9958333333333332,
+        0.9958333333333332,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "pr_auc": [
+        0.9959935897435898,
+        0.9959935897435898,
+        0.043863565650590526,
+        0.04559535576008584,
+        0.037555935346770576
+      ]
+    },
+    {
+      "name": "Coded-phrase bursts",
+      "new": false,
+      "recall": [
+        1.0,
+        1.0,
+        0.05416666666666667,
+        0.0,
+        0.0
+      ],
+      "pr_auc": [
+        0.9998456790123457,
+        1.0,
+        0.6748664440747909,
+        0.07685186465556341,
+        0.09833026530245337
+      ]
+    },
+    {
+      "name": "Same threads, any delay",
+      "new": true,
+      "recall": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "pr_auc": [
+        0.512177149836,
+        0.49533581920207226,
+        0.5304031307251793,
+        0.052564562697031574,
+        0.04436967196319682
+      ]
+    },
+    {
+      "name": "Same talking point, same day",
+      "new": true,
+      "recall": [
+        0.9249999999999999,
+        0.9916666666666667,
+        0.9958333333333332,
+        0.0,
+        0.0
+      ],
+      "pr_auc": [
+        0.9483626514819452,
+        0.9939316635745207,
+        0.9992003367003367,
+        0.10996039468302055,
+        0.03813557416575825
+      ]
+    },
+    {
+      "name": "Lockstep pivots",
+      "new": true,
+      "recall": [
+        0.6708333333333334,
+        0.7333333333333334,
+        0.1875,
+        0.0,
+        0.0
+      ],
+      "pr_auc": [
+        0.8690002277184111,
+        0.8271167686771621,
+        0.5007745270291336,
+        0.040936759334081634,
+        0.03854297823522538
+      ]
+    },
+    {
+      "name": "Same active days",
+      "new": true,
+      "recall": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "pr_auc": [
+        0.2364890233580946,
+        0.34075815304424345,
+        0.21601264659444608,
+        0.07864610173183896,
+        0.05186189445102435
+      ]
+    },
+    {
+      "name": "Arrived in a batch",
+      "new": true,
+      "recall": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "pr_auc": [
+        0.054221073141809246,
+        0.10737631817666247,
+        0.09826957103983051,
+        0.06228774843207566,
+        0.04218616784216394
+      ]
+    },
+    {
+      "name": "Several leaks, same partners",
+      "new": true,
+      "recall": [
+        0.9791666666666666,
+        1.0,
+        1.0,
+        0.3125,
+        0.0
+      ],
+      "pr_auc": [
+        0.9879658031345526,
+        0.9995858414265695,
+        1.0,
+        0.5220448452561025,
+        0.04374082305688584
+      ]
+    },
+    {
+      "name": "Sounds like AI (not in the model)",
+      "new": true,
+      "recall": [
+        0.004166666666666667,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "pr_auc": [
+        0.1343281299787872,
+        0.44379934295325346,
+        0.4047243473010918,
+        0.3616362847058108,
+        0.3879180398658925
+      ]
+    }
+  ],
+  "models": [
+    {
+      "name": "Version 1 signals only",
+      "recall": [
+        1.0,
+        1.0,
+        0.4916666666666667,
+        0.004166666666666667,
+        0.0
+      ],
+      "pr_auc": [
+        1.0,
+        0.9999999999999999,
+        0.8614447161664179,
+        0.12416627694419191,
+        0.08740085301964913
+      ],
+      "applied_precision": [
+        0.9523809523809523,
+        0.9486166007905138,
+        0.90625,
+        0.14285714285714285,
+        0.0
+      ],
+      "applied_recall": [
+        1.0,
+        1.0,
+        0.48333333333333334,
+        0.008333333333333333,
+        0.0
+      ]
+    },
+    {
+      "name": "Version 1 + cross-account signals",
+      "recall": [
+        0.975,
+        1.0,
+        1.0,
+        0.22083333333333333,
+        0.0
+      ],
+      "pr_auc": [
+        0.9837845954057706,
+        0.9996820898097708,
+        1.0,
+        0.5821391589131019,
+        0.1355431938661314
+      ],
+      "applied_precision": [
+        0.8863636363636364,
+        0.8856088560885609,
+        0.9375,
+        0.6986301369863014,
+        0.20930232558139536
+      ],
+      "applied_recall": [
+        0.975,
+        1.0,
+        1.0,
+        0.425,
+        0.0375
+      ]
+    }
+  ],
+  "controls": [
+    {
+      "kind": "ordinary",
+      "label": "Ordinary accounts",
+      "accounts": 18840,
+      "flag_rate": {
+        "Version 1 signals only": 0.0024416135881104033,
+        "Version 1 + cross-account signals": 0.0033439490445859874
+      },
+      "flagged": {
+        "Version 1 signals only": 46,
+        "Version 1 + cross-account signals": 63
+      }
+    },
+    {
+      "kind": "junkie",
+      "label": "Fast news followers",
+      "accounts": 1500,
+      "flag_rate": {
+        "Version 1 signals only": 0.0,
+        "Version 1 + cross-account signals": 0.0
+      },
+      "flagged": {
+        "Version 1 signals only": 0,
+        "Version 1 + cross-account signals": 0
+      }
+    },
+    {
+      "kind": "community",
+      "label": "Fan communities (shared favourite talking points)",
+      "accounts": 1080,
+      "flag_rate": {
+        "Version 1 signals only": 0.0,
+        "Version 1 + cross-account signals": 0.012037037037037037
+      },
+      "flagged": {
+        "Version 1 signals only": 0,
+        "Version 1 + cross-account signals": 13
+      }
+    },
+    {
+      "kind": "ai_polished",
+      "label": "People who polish their posts with AI",
+      "accounts": 2400,
+      "flag_rate": {
+        "Version 1 signals only": 0.0,
+        "Version 1 + cross-account signals": 0.0025
+      },
+      "flagged": {
+        "Version 1 signals only": 0,
+        "Version 1 + cross-account signals": 6
+      }
+    },
+    {
+      "kind": "translator",
+      "label": "Non-native speakers using a translator",
+      "accounts": 900,
+      "flag_rate": {
+        "Version 1 signals only": 0.005555555555555556,
+        "Version 1 + cross-account signals": 0.006666666666666667
+      },
+      "flagged": {
+        "Version 1 signals only": 5,
+        "Version 1 + cross-account signals": 6
+      }
+    },
+    {
+      "kind": "regular",
+      "label": "Power users and moderators (fixed hours, fast replies)",
+      "accounts": 600,
+      "flag_rate": {
+        "Version 1 signals only": 0.0,
+        "Version 1 + cross-account signals": 0.0
+      },
+      "flagged": {
+        "Version 1 signals only": 0,
+        "Version 1 + cross-account signals": 0
+      }
+    },
+    {
+      "kind": "crossposter",
+      "label": "People who paste their own comment in several threads",
+      "accounts": 600,
+      "flag_rate": {
+        "Version 1 signals only": 0.0,
+        "Version 1 + cross-account signals": 0.0
+      },
+      "flagged": {
+        "Version 1 signals only": 0,
+        "Version 1 + cross-account signals": 0
+      }
+    },
+    {
+      "kind": "brigade",
+      "label": "Organic brigades (real users arriving from one link)",
+      "accounts": 1125,
+      "flag_rate": {
+        "Version 1 signals only": 0.0,
+        "Version 1 + cross-account signals": 0.03822222222222222
+      },
+      "flagged": {
+        "Version 1 signals only": 0,
+        "Version 1 + cross-account signals": 43
+      }
+    },
+    {
+      "kind": "newcomer",
+      "label": "New accounts made during breaking news",
+      "accounts": 2955,
+      "flag_rate": {
+        "Version 1 signals only": 0.00338409475465313,
+        "Version 1 + cross-account signals": 0.008121827411167513
+      },
+      "flagged": {
+        "Version 1 signals only": 10,
+        "Version 1 + cross-account signals": 24
+      }
+    }
+  ],
+  "frontier": [
+    {
+      "network_size": 5,
+      "campaign_share": 0.1,
+      "recall": 0.00625,
+      "pr_auc": 0.21760005851364758
+    },
+    {
+      "network_size": 5,
+      "campaign_share": 0.2,
+      "recall": 0.05,
+      "pr_auc": 0.405717148531763
+    },
+    {
+      "network_size": 5,
+      "campaign_share": 0.3,
+      "recall": 0.16874999999999998,
+      "pr_auc": 0.5642111448698864
+    },
+    {
+      "network_size": 5,
+      "campaign_share": 0.5,
+      "recall": 0.7375,
+      "pr_auc": 0.8964826663638065
+    },
+    {
+      "network_size": 10,
+      "campaign_share": 0.1,
+      "recall": 0.0125,
+      "pr_auc": 0.30538319626311333
+    },
+    {
+      "network_size": 10,
+      "campaign_share": 0.2,
+      "recall": 0.01875,
+      "pr_auc": 0.268297956821529
+    },
+    {
+      "network_size": 10,
+      "campaign_share": 0.3,
+      "recall": 0.5125,
+      "pr_auc": 0.8208814152767323
+    },
+    {
+      "network_size": 10,
+      "campaign_share": 0.5,
+      "recall": 0.8187500000000001,
+      "pr_auc": 0.8912513709884649
+    },
+    {
+      "network_size": 20,
+      "campaign_share": 0.1,
+      "recall": 0.0125,
+      "pr_auc": 0.3629969227822688
+    },
+    {
+      "network_size": 20,
+      "campaign_share": 0.2,
+      "recall": 0.15000000000000002,
+      "pr_auc": 0.4740527867418633
+    },
+    {
+      "network_size": 20,
+      "campaign_share": 0.3,
+      "recall": 0.4875,
+      "pr_auc": 0.738858857004944
+    },
+    {
+      "network_size": 20,
+      "campaign_share": 0.5,
+      "recall": 0.95625,
+      "pr_auc": 0.977965465760155
+    },
+    {
+      "network_size": 40,
+      "campaign_share": 0.1,
+      "recall": 0.1875,
+      "pr_auc": 0.520245717575867
+    },
+    {
+      "network_size": 40,
+      "campaign_share": 0.2,
+      "recall": 0.6375,
+      "pr_auc": 0.832357353995216
+    },
+    {
+      "network_size": 40,
+      "campaign_share": 0.3,
+      "recall": 0.53125,
+      "pr_auc": 0.7482114783007342
+    },
+    {
+      "network_size": 40,
+      "campaign_share": 0.5,
+      "recall": 0.91875,
+      "pr_auc": 0.9630226834929742
+    }
+  ],
+  "disclosed_bots": {
+    "per_world": 3,
+    "scored": 0
+  },
+  "ai_style": [
+    {
+      "level": "naive",
+      "puppets": 0.0,
+      "ai_polished": 0.7458333333333333,
+      "translator": 0.25416666666666665,
+      "other": 0.0
+    },
+    {
+      "level": "style",
+      "puppets": 0.0,
+      "ai_polished": 0.7458333333333333,
+      "translator": 0.25416666666666665,
+      "other": 0.0
+    },
+    {
+      "level": "jitter",
+      "puppets": 0.0,
+      "ai_polished": 0.7458333333333333,
+      "translator": 0.25416666666666665,
+      "other": 0.0
+    },
+    {
+      "level": "sparse",
+      "puppets": 0.016666666666666666,
+      "ai_polished": 0.7333333333333333,
+      "translator": 0.25,
+      "other": 0.0
+    },
+    {
+      "level": "patient",
+      "puppets": 0.0125,
+      "ai_polished": 0.7375,
+      "translator": 0.25,
+      "other": 0.0
+    }
+  ]
+}

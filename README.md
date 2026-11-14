@@ -30,6 +30,8 @@ features, so `features` runs first.
 | Stage | Command | Reads | Writes |
 | --- | --- | --- | --- |
 | Measure volumes | `python -m ea volumes` | Arctic Shift API | `reports/immigration/volumes.csv` |
+| Measure topic share | `python -m ea topic-share` | Arctic Shift API | `reports/immigration/topic_share.csv` |
+| Seed account list | `python -m ea seed-list` | Arctic Shift wiki archive | `data/seeds/reddit_2018_suspicious*.csv` |
 | Collect | `python -m ea collect` | Arctic Shift API or dump files | `data/immigration/collected/<subreddit>/*.jsonl` |
 | Features | `python -m ea features` | collected | `data/immigration/features.csv`, `data/immigration/clusters.csv`, `reports/immigration/phrase_spread.csv` |
 | Label | `python -m ea sample`, then `python -m ea agreement --sheets A.csv B.csv` | features | `data/immigration/labels/to_label.csv` |
@@ -51,11 +53,30 @@ The demo plants invented programs and coordinated rings among invented ordinary
 accounts and checks that the model finds the programs and the cluster detector finds the rings. It proves the code runs. It says
 nothing about real Reddit.
 
+## Red team: do the signals survive smarter sock puppets?
+
+```
+python -m ea redteam            # about 10 minutes on 4 cores
+python -m ea redteam --quick    # one minute, to check the code
+```
+
+Builds made-up worlds where LLM-driven sock-puppet networks hide among ordinary
+accounts, at five evasion levels (copy-paste bots, reworded text, human timing,
+sparse and distributed, patient operator), and measures which signals still find
+them at 90% precision. The background includes nine kinds of real account that
+must not be flagged (people who polish posts with AI, organic brigades, power
+users and more), and the report gives the false-flag rate on each.
+
+Results and how to read them: [docs/redteam/RESULTS.md](docs/redteam/RESULTS.md).
+All text is built from invented words, so nothing it writes could be posted anywhere.
+
 ## Run it on real data
 
-Read [docs/DATA_TERMS.md](docs/DATA_TERMS.md) first.
+**Reddit collection is paused.** Steps 1 and 2 below, and the `seed-list` and `threads`
+stages, refuse to run and fetch nothing while the configs say
+`reddit_collection_permitted = false`. Read [docs/DATA_TERMS.md](docs/DATA_TERMS.md) first.
 
-1. `python -m ea volumes` counts comments per subreddit per month. Look at the numbers before downloading anything: they decide which subreddits are practical.
+1. `python -m ea volumes` counts comments per subreddit per month, and `python -m ea topic-share` counts how many threads and comments match the topic keywords. Look at the numbers before downloading anything: they decide which subreddits are practical.
 2. `python -m ea collect --only immigration` downloads one subreddit. It is slow on purpose (one request a second to a free community service) and can be stopped and restarted.
 3. `python -m ea features`, then `python -m ea sample` to get a labeling sheet.
 4. Two people label the same sheet following [docs/LABELS.md](docs/LABELS.md) (columns `who_types`, `changed_hands`, `confidence`, `evidence`), then `python -m ea agreement`. Target kappa 0.6 or above on each question before labeling more.
@@ -79,6 +100,11 @@ Have dump files instead? `python -m ea collect --posts-dump RS_2026-01.zst --com
 | `ea/metrics.py` | Crossover error rate, software caught at a fixed false-flag rate, confidence ranges, calibration |
 | `ea/evaluate.py` | The aggregate report: those metrics, checks by subreddit and control group, cluster counts and reach |
 | `ea/synthetic.py` | Made-up data with known answers |
+| `ea/network.py` | Reply network around confirmed accounts: mixing, selectivity, relays, proximity test |
+| `ea/ira2018.py` | Downloads and converts the accounts Reddit disclosed in 2018 into hashed seed data |
+| `ea/network_features.py` | Cross-account signals: shared talking points, pivots, active days, arrival cohorts |
+| `ea/redteam_generate.py` | Made-up sock-puppet networks at five evasion levels, plus negative controls |
+| `ea/redteam.py` | The red-team experiment: which signals survive each level |
 
 ## How it is judged
 
@@ -108,6 +134,35 @@ Motive is never labeled. Full guide and checklist: [docs/LABELS.md](docs/LABELS.
 Coded phrases are tracked from both sides with equal-sized lists and merged before
 any feature is computed, so no feature can tell which list a phrase came from.
 
+## The reply network (who answers whom)
+
+Starts from accounts already confirmed as inauthentic ("seeds") and measures the
+web of replies around them. Descriptive statistics only: nothing is trained.
+
+```
+python -m ea network-demo                          # made-up data with planted patterns
+python -m ea seeds   --config config/ira2018.toml  # the 944 accounts Reddit disclosed in 2018 (public domain copy)
+python -m ea network --config config/ira2018.toml  # writes reports/ira2018/network.json
+```
+
+| Measure | Question | How |
+| --- | --- | --- |
+| Mixing | Do seeds aim their replies at other seeds? | Share of seed replies that hit a seed, against a shuffle of partners within each subreddit |
+| Seed web | Is the seed-to-seed web tight? | Pairs, reciprocity, clustering, against the same shuffle |
+| Selectivity | Does an account keep answering the same few people? | Number of targets, top target's share, spread |
+| Range and role | Is it narrow in where it acts and what it does? | Subreddits used, top subreddit's share, posts only / comments only |
+| Relays | Do accounts pass the same link along? | Same link from 2+ accounts within 24 hours |
+| Proximity | Would a net cast from known seeds catch the right accounts? | Hide half the seeds, flag the contacts of the rest, report precision and recall |
+
+To run it on any collected topic, put the confirmed accounts' hashes in
+`data/<topic>/labels/seeds.csv` (column `author_hash`) and run `python -m ea network`.
+
+Two limits to keep in mind. The 2018 data holds only what the disclosed accounts
+wrote, so the mixing test cannot run on it (there are no replies from anyone
+else to shuffle against) and there is no comparison group. And being close to a
+seed is evidence for a score, never a label: on the 2018 accounts, flagging
+whoever three or more known seeds replied to was right 21% of the time.
+
 ## Not built yet
 
 - Signals and a model for "changed hands" (H4: long dormancy, then a new persona). Needs account history beyond the topic threads.
@@ -116,4 +171,5 @@ any feature is computed, so no feature can tell which list a phrase came from.
 - Holding out whole coordinated clusters in the test set.
 - Prevalence estimates weighted back to the real population, with confidence intervals. The sampling weights are already recorded.
 - The claims layer: cluster recurring talking points and match them to independent fact-check ratings (rated false / contested / unrated). Separate from the detector by design. A second evidence source, official records and event data, is designed in [docs/CLAIMS_EVIDENCE.md](docs/CLAIMS_EVIDENCE.md).
+- The narrative grounding map: what each recurring point of view rests on, whether that basis holds up, and who carries it. Design in [docs/NARRATIVE_MAP.md](docs/NARRATIVE_MAP.md).
 - X data (Community Archive, TwiBot-22) for method tests.
