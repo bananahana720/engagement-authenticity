@@ -116,4 +116,5 @@ any feature is computed, so no feature can tell which list a phrase came from.
 - Holding out whole coordinated clusters in the test set.
 - Prevalence estimates weighted back to the real population, with confidence intervals. The sampling weights are already recorded.
 - The claims layer: cluster recurring talking points and match them to independent fact-check ratings (rated false / contested / unrated). Separate from the detector by design. A second evidence source, official records and event data, is designed in [docs/CLAIMS_EVIDENCE.md](docs/CLAIMS_EVIDENCE.md).
+- The narrative grounding map: what each recurring point of view rests on, whether that basis holds up, and who carries it. Design in [docs/NARRATIVE_MAP.md](docs/NARRATIVE_MAP.md).
 - X data (Community Archive, TwiBot-22) for method tests.
