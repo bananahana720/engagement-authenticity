@@ -435,7 +435,7 @@ def test_bluesky_listen_counts_topics_and_remembers_threads(bsky_cfg):
     assert by_topic.loc["immigration", "posts"] == 3 and by_topic.loc["immigration", "replies"] == 1
     assert by_topic.loc["russia_ukraine", "posts"] == 1
     assert by_topic.loc["all", "posts_per_day_at_this_rate"] == 5 * 1440
-    assert threads == [ROOT, "at://did:plc:fay/app.bsky.feed.post/r6"]
+    assert set(threads) == {ROOT, "at://did:plc:fay/app.bsky.feed.post/r6"} and threads[ROOT] == 2
     assert deleted == {pseudonym("at://did:plc:erin/app.bsky.feed.post/r5", b"test-key")}
 
 
@@ -669,3 +669,26 @@ def test_shipped_configs_keep_reddit_paused_and_untrainable():
         assert shipped["collect"]["reddit_collection_permitted"] is False
         with pytest.raises(model.TrainingNotAllowed):
             model.check_training_allowed(shipped["source"], shipped)
+
+
+def test_bluesky_pick_threads_mixes_busiest_and_random():
+    from collections import Counter as C
+    import random as r
+    threads = C({f"t{i}": 100 - i for i in range(50)})
+    picks = bluesky.pick_threads(threads, {"busiest_threads": 3, "random_threads": 5}, r.Random(1))
+    assert [a for a, how in picks if how == "busiest"] == ["t0", "t1", "t2"]
+    drawn = [a for a, how in picks if how == "random"]
+    assert len(drawn) == 5 and not {"t0", "t1", "t2"} & set(drawn)
+    assert len(bluesky.pick_threads(threads, {"max_threads": 4}, r.Random(1))) == 4      # older configs
+
+
+def test_bluesky_long_run_stores_marked_threads_in_a_dated_folder(bsky_cfg):
+    bsky_cfg["bluesky"].update(busiest_threads=0, random_threads=5)
+    start = bluesky.parse_event(new_layout("did:plc:alice", "r1", {"text": "New deportation flights"}))
+    log = bluesky.run(bsky_cfg, 1, session=FakeBluesky(), cycles=[[start], [start]])
+    cycles = pd.read_csv(log)
+    assert len(cycles) == 2 and cycles["picked_random"].tolist() == [1, 0]    # a thread is chosen once
+    folders = list(paths(bsky_cfg)["collected"].glob("bluesky-*"))
+    assert len(folders) == 1
+    post = json.loads((folders[0] / "posts.jsonl").read_text())
+    assert post["picked"] == "random" and "did:plc" not in json.dumps(post)
