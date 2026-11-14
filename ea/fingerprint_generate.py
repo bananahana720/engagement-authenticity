@@ -28,6 +28,11 @@ MODELS = {
                 "Ministral-3-3B-Instruct-2512-Q4_K_M.gguf"),
 }
 PARAPHRASER = "qwen"
+# The DeepSeek distill refuses most posts when its reasoning step is skipped, so it keeps it.
+THINKING = {"deepseek"}
+THINKING_TOKENS = 450
+# Slow models (reasoning tokens, or a 3B model on CPU) answer fewer posts: (short, long).
+REDUCED = {"deepseek": (120, 50), "mistral": (120, 50)}
 
 TOPICS = [
     "cast iron pans", "sourdough bread", "air fryers", "meal prepping", "pour-over coffee",
@@ -83,7 +88,8 @@ def paraphrase_message(text):
 
 def clean(text, finished):
     """Drop any reasoning block; if the model ran out of tokens, cut at the last full sentence."""
-    text = re.sub(r"<think>.*?</think>", "", text, flags=re.S).strip()
+    text = re.sub(r"<think>.*?</think>", "", text, flags=re.S)
+    text = text.rpartition("</think>")[2].strip()
     if not finished:
         ends = [m.end() for m in re.finditer(r"[.!?](\s|$)", text)]
         if ends:
@@ -92,8 +98,9 @@ def clean(text, finished):
 
 
 class TransformersModel:
-    def __init__(self, repo):
+    def __init__(self, repo, think=False):
         import torch
+        self.think = think
         from transformers import AutoModelForCausalLM, AutoTokenizer
         self.torch = torch
         torch.set_num_threads(4)
@@ -109,9 +116,11 @@ class TransformersModel:
         for message in messages:
             p = self.tok.apply_chat_template([{"role": "user", "content": message}],
                                              tokenize=False, add_generation_prompt=True)
-            if p.rstrip().endswith("<think>"):  # reasoning models: skip the reasoning block
+            if p.rstrip().endswith("<think>") and not self.think:  # skip the reasoning block
                 p = p.rstrip() + "\n\n</think>\n\n"
             prompts.append(p)
+        if self.think:
+            max_new_tokens += THINKING_TOKENS
         results = []
         for start in range(0, len(prompts), batch_size):
             enc = self.tok(prompts[start:start + batch_size], return_tensors="pt", padding=True,
@@ -124,7 +133,10 @@ class TransformersModel:
             for row in new:
                 finished = bool((row == self.tok.pad_token_id).any() or (row == self.tok.eos_token_id).any()
                                 or len(row) < max_new_tokens)
-                results.append(clean(self.tok.decode(row, skip_special_tokens=True), finished))
+                text = self.tok.decode(row, skip_special_tokens=True)
+                if self.think and "</think>" not in text:
+                    text = ""  # still reasoning when the tokens ran out: no reply
+                results.append(clean(text, finished))
         return results
 
 
@@ -147,7 +159,9 @@ class GgufModel:
 
 def load(family):
     kind, repo, filename = MODELS[family]
-    return TransformersModel(repo) if kind == "transformers" else GgufModel(repo, filename)
+    if kind == "transformers":
+        return TransformersModel(repo, think=family in THINKING)
+    return GgufModel(repo, filename)
 
 
 def _append(path, rows):
@@ -164,6 +178,7 @@ def _done(path):
 
 def generate_family(family, n_short=300, n_long=150, out_dir=OUT_DIR):
     """Write this family's short, human-style and long replies. Safe to rerun: skips what exists."""
+    n_short, n_long = REDUCED.get(family, (n_short, n_long))
     out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / f"{family}.jsonl"
     done, model, all_posts = _done(path), load(family), posts()
@@ -194,7 +209,7 @@ def paraphrase_all(families, n=150, out_dir=OUT_DIR):
             print(f"paraphrase {family} {start + len(batch)}/{len(rows)}", flush=True)
 
 
-def main(families=None, n_short=300, n_long=150, n_paraphrase=150):
+def main(families=None, n_short=300, n_long=150, n_paraphrase=120):
     families = families or list(MODELS)
     for family in families:
         generate_family(family, n_short, n_long)

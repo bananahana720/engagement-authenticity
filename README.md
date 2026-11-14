@@ -66,6 +66,9 @@ must not be flagged (people who polish posts with AI, organic brigades, power
 users and more), and the report gives the false-flag rate on each.
 
 Results and how to read them: [docs/redteam/RESULTS.md](docs/redteam/RESULTS.md).
+
+Model-fingerprint test (which model family wrote a short reply, and what hides it):
+[docs/redteam/fingerprint/RESULTS.md](docs/redteam/fingerprint/RESULTS.md).
 All text is built from invented words, so nothing it writes could be posted anywhere.
 
 ## Run it on real data
@@ -99,6 +102,8 @@ Have dump files instead? `python -m ea collect --posts-dump RS_2026-01.zst --com
 | `ea/network_features.py` | Cross-account signals: shared talking points, pivots, active days, arrival cohorts |
 | `ea/redteam_generate.py` | Made-up sock-puppet networks at five evasion levels, plus negative controls |
 | `ea/redteam.py` | The red-team experiment: which signals survive each level |
+| `ea/fingerprint_generate.py` | Replies from small open models run locally, for the fingerprint test |
+| `ea/fingerprint.py` | Can a classifier name the model family behind a text? By length and evasion |
 
 ## How it is judged
 
