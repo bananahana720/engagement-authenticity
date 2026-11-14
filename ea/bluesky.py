@@ -87,6 +87,9 @@ def listen(cfg, seconds, events=None):
     """
     key = load_key()
     patterns = {name: topic_pattern(words) for name, words in cfg["topics"].items()}
+    # Words that only count in capitals, such as "ICE" (the agency, not frozen water).
+    exact = {name: re.compile(r"\b(" + "|".join(map(re.escape, words)) + r")\b")
+             for name, words in cfg.get("topics_capitals_only", {}).items()}
     collect_topic = cfg["bluesky"]["collect_topic"]
     counts = Counter()
     threads = Counter()         # thread address -> on-topic posts seen in it
@@ -103,7 +106,7 @@ def listen(cfg, seconds, events=None):
         counts["all", is_reply] += 1
         text = record.get("text", "")
         for name, pattern in patterns.items():
-            if pattern.search(text):
+            if pattern.search(text) or (name in exact and exact[name].search(text)):
                 counts[name, is_reply] += 1
                 if name == collect_topic:
                     root = record["reply"]["root"]["uri"] if is_reply else address

@@ -384,14 +384,15 @@ def test_bluesky_listen_counts_topics_and_remembers_threads(bsky_cfg):
         new_layout("did:plc:carol", "r3", {"text": "I like ice cream"}),
         new_layout("did:plc:dan", "r4", {"text": "Kyiv was hit overnight"}),
         new_layout("did:plc:erin", "r5", {}, operation="delete"),
+        new_layout("did:plc:fay", "r6", {"text": "ICE was outside the school"}),
     ]]
     volumes, threads, deleted = bluesky.listen(bsky_cfg, 60, events)
     by_topic = volumes.set_index("topic")
-    assert by_topic.loc["all", "posts"] == 4
-    assert by_topic.loc["immigration", "posts"] == 2 and by_topic.loc["immigration", "replies"] == 1
+    assert by_topic.loc["all", "posts"] == 5
+    assert by_topic.loc["immigration", "posts"] == 3 and by_topic.loc["immigration", "replies"] == 1
     assert by_topic.loc["russia_ukraine", "posts"] == 1
-    assert by_topic.loc["all", "posts_per_day_at_this_rate"] == 4 * 1440
-    assert threads == [ROOT]
+    assert by_topic.loc["all", "posts_per_day_at_this_rate"] == 5 * 1440
+    assert threads == [ROOT, "at://did:plc:fay/app.bsky.feed.post/r6"]
     assert deleted == {pseudonym("at://did:plc:erin/app.bsky.feed.post/r5", b"test-key")}
 
 

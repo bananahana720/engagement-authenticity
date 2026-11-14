@@ -49,6 +49,24 @@ permission in writing; it means no clause forbids it.
 | **Bluesky dumps on Hugging Face** | **No need.** The live stream gives the same data with deletions honored. | One card says "Dataset usage is subject to Bluesky's Terms of Service" while tagged Apache-2.0. | None found. |
 | **Platform threat reports** (Meta, Google, OpenAI, Anthropic) | **Read as narrative, not data.** | The index pages did not expose account-level data or terms when read. Not verified further. | Named campaigns and tactics, useful for the red-team list, not for training. |
 
+## First real sample from Bluesky
+
+One 15-minute listen on 2026-11-14 from 10:30 UTC (5:30 in the morning US Eastern, so the
+US was mostly asleep), then a fetch of every thread the immigration topic touched.
+No account or key was used. One short window at a quiet hour: treat the daily rates as
+a floor, not an estimate.
+
+| Topic | Posts in 15 minutes | Share of all posts | Posts a day at this rate |
+| --- | --- | --- | --- |
+| All of Bluesky | 251,661 | 100% | about 24 million |
+| Immigration enforcement | 33 | 0.013% | about 3,200 |
+| Russia-Ukraine | 343 | 0.136% | about 33,000 |
+
+- Stored: 32 thread starts and 143 replies from 110 accounts. Only 3 accounts had the 5 replies needed for a feature row, so nothing can be modeled from this yet.
+- The later stages ran unchanged on the Bluesky files.
+- The immigration keywords for this run left out bare "ICE" to avoid "ice cream". The config now counts "ICE" when written in capitals, which should raise the count.
+- Keyword search of past posts works without an account on `api.bsky.app` (answered 200) and is refused on `public.api.bsky.app` (403). The docs describe both hosts as taking no authentication. Search is the likely route to past weeks of threads; not built.
+
 ## Why Bluesky, and what it cannot do
 
 - **The whole network is public by design and offered without an account.** Collection is the intended use of the stream, not a workaround.

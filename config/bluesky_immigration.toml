@@ -31,6 +31,10 @@ russia_ukraine = [
     "Україна", "України", "Украина", "Украины", "Путин", "Путін",
 ]
 
+[topics_capitals_only]
+# Matched only when written in capitals, so "ICE" counts and "ice cream" does not.
+immigration = ["ICE"]
+
 [bluesky]
 collect_topic = "immigration"
 # Jetstream: Bluesky's public JSON stream. No account or key. Tried in order.
@@ -40,7 +44,7 @@ stream_urls = [
     "wss://jetstream1.us-west.bsky.network/subscribe?wantedCollections=app.bsky.feed.post",
 ]
 api_base = "https://public.api.bsky.app"    # the cached public API Bluesky asks developers to use
-max_threads = 300                           # per run: the busiest on-topic threads are fetched first
+max_threads = 600                           # per run: the busiest on-topic threads are fetched first
 seconds_between_requests = 0.5
 
 [coded_phrases]
