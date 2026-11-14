@@ -17,6 +17,7 @@ import pandas as pd
 import requests
 
 from ea.collect import get_json
+from ea.config import check_collection_allowed
 from ea.pseudonymize import load_key, pseudonym
 
 WIKI_PATH = "/r/reddit.com/wiki/suspiciousaccounts"
@@ -29,6 +30,7 @@ def parse_wiki_table(content):
 
 
 def fetch_reddit_2018(cfg, session=None, out_dir=Path("data/seeds")):
+    check_collection_allowed(cfg)
     session = session or requests.Session()
     url = f"{cfg['collect']['api_base']}/api/subreddits/wikis"
     pages = get_json(session, url, {"paths": WIKI_PATH})

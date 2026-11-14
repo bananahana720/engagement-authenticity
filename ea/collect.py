@@ -18,7 +18,7 @@ import time
 import pandas as pd
 import requests
 
-from ea.config import all_subreddits, paths
+from ea.config import all_subreddits, check_collection_allowed, paths
 from ea.pseudonymize import NO_AUTHOR, is_disclosed_bot, load_key, pseudonym
 
 USER_AGENT = "engagement-authenticity-research/0.1"
@@ -99,6 +99,7 @@ def get_json(session, url, params, tries=5):
 
 def measure_volumes(cfg, session=None):
     """Monthly comment and post counts per subreddit. Cheap: one call per number."""
+    check_collection_allowed(cfg)
     session = session or requests.Session()
     base = cfg["collect"]["api_base"]
     rows = []
@@ -122,6 +123,7 @@ def measure_topic_share(cfg, session=None):
     in memory and never written. Comment counts are Reddit's own num_comments as
     Arctic Shift last saw it, so the on-topic comment figure is an estimate.
     """
+    check_collection_allowed(cfg)
     session = session or requests.Session()
     base = cfg["collect"]["api_base"]
     wait = cfg["collect"]["seconds_between_requests"]
@@ -151,6 +153,7 @@ def measure_topic_share(cfg, session=None):
 
 def collect(cfg, session=None, only=None):
     """Download on-topic threads for every subreddit in the config."""
+    check_collection_allowed(cfg)
     session = session or requests.Session()
     key = load_key()
     base = cfg["collect"]["api_base"]
@@ -253,6 +256,7 @@ def read_dump(path):
 
 def collect_from_dumps(cfg, posts_path, comments_path):
     """Same output as collect(), from one posts dump and one comments dump."""
+    check_collection_allowed(cfg)
     key = load_key()
     pattern = topic_pattern(cfg["topic"]["title_keywords"])
     subs = {s.lower(): s for s in all_subreddits(cfg)}
@@ -287,10 +291,9 @@ def append(cfg, sub, kind, record):
 def load_collected(cfg):
     """Return (posts, comments) DataFrames for everything collected so far."""
     root = paths(cfg)["collected"]
-    posts = read_all(root.glob("*/posts.jsonl"))
-    comments = read_all(root.glob("*/comments.jsonl"))
+    posts = read_all(root.glob("*/posts.jsonl")).drop_duplicates("id")
+    comments = read_all(root.glob("*/comments.jsonl")).drop_duplicates("id")
     for table in (posts, comments):
-        table.drop_duplicates("id", inplace=True)
         table["time"] = pd.to_datetime(table["created_utc"], unit="s", utc=True)
     return posts, comments
 

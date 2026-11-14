@@ -32,6 +32,7 @@ def cfg(tmp_path, monkeypatch):
     cfg = load_config(Path(__file__).parent.parent / "config" / "ira2018.toml")
     cfg["data_dir"], cfg["reports_dir"] = tmp_path / "data", tmp_path / "reports"
     cfg["collect"]["seconds_between_requests"] = 0
+    cfg["source"] = "synthetic"         # the test uses a fake API; the real config says "reddit", which is paused
     raw = cfg["data_dir"] / "raw"
     raw.mkdir(parents=True)
     (raw / "comments.csv").write_text("link_id\nt3_p1\n")

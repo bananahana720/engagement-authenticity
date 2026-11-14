@@ -5,11 +5,16 @@
 name = "ira2018"
 data_dir = "data/ira2018"
 reports_dir = "reports/ira2018"
+# This is Reddit data, so no model is trained on it (ea/model.py refuses).
+source = "reddit"
 
-[source]
+[seeds]
+# A public-domain copy of what the 944 disclosed accounts wrote. Still in use.
 base_url = "https://raw.githubusercontent.com/ALCC01/reddit-suspicious-accounts/master"
 
 [collect]
 # Used by `python -m ea threads` to fill in everyone's replies in the seeds' threads.
+# That is new Reddit collection, which is paused: the stage refuses while this is false.
+reddit_collection_permitted = false
 api_base = "https://arctic-shift.photon-reddit.com"
 seconds_between_requests = 1.0

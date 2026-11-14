@@ -1,9 +1,9 @@
 """Run one pipeline stage:  python -m ea <stage> [--config config/immigration.toml]
 
-  volumes    count comments and posts per subreddit per month (needs internet)
-  topic-share  count on-topic threads and their comments per subreddit per month (needs internet)
-  seed-list  fetch Reddit's 2018 list of suspended influence-operation accounts (needs internet)
-  collect    download on-topic threads (needs internet)
+  volumes    count comments and posts per subreddit per month (Reddit: paused, refuses)
+  topic-share  count on-topic threads and their comments per subreddit per month (Reddit: paused, refuses)
+  seed-list  fetch Reddit's 2018 list of suspended influence-operation accounts (Reddit: paused, refuses)
+  collect    download on-topic threads (Reddit: paused, refuses)
   features   compute one row of signals per account
   sample     write a labeling sheet
   agreement  compare two labelers' sheets
@@ -24,7 +24,7 @@ import json
 
 from ea import (collect, evaluate, features, ira2018, label, model, network, redteam, seeds,
                 synthetic, threads)
-from ea.config import load_config, paths
+from ea.config import CollectionPaused, load_config, paths
 
 
 def main():
@@ -104,4 +104,7 @@ def run_demo(cfg):
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except CollectionPaused as refusal:
+        raise SystemExit(str(refusal))

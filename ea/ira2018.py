@@ -36,7 +36,7 @@ def download(cfg):
     for name in FILES:
         target = raw / name.split("/")[-1]
         if not target.exists():
-            response = requests.get(f"{cfg['source']['base_url']}/{name}", timeout=120)
+            response = requests.get(f"{cfg['seeds']['base_url']}/{name}", timeout=120)
             response.raise_for_status()
             target.write_bytes(response.content)
     return raw

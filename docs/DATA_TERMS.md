@@ -10,6 +10,13 @@ is moving to other platforms. On disk from before the pause: monthly comment and
 post counts only (`reports/immigration/volumes.csv`) and Reddit's published 2018
 account list (`data/seeds/`). No Reddit comments were collected.
 
+The pause is enforced in code. Both configs say `source = "reddit"` and
+`reddit_collection_permitted = false`, and while that holds the stages `volumes`,
+`topic-share`, `seed-list`, `collect` and `threads` refuse and fetch nothing. Still in
+use: the public-domain copy of what the 944 accounts Reddit disclosed in 2018 wrote
+(`python -m ea seeds --config config/ira2018.toml`), for the reply-network measures.
+Change the flag only on the project owner's decision.
+
 ## Verdict
 
 Reddit's terms do not forbid this project's collection and aggregate measurement.

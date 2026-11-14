@@ -1,9 +1,9 @@
 # Nothing collected, labeled or modeled is ever committed.
 data/
 reports/
-.secrets/
+.secrets
 __pycache__/
 *.pyc
 .pytest_cache/
 *.egg-info/
-.venv/
+.venv

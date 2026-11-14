@@ -16,7 +16,7 @@ Resumable: a thread listed in threads_done.txt is not fetched again.
 import requests
 
 from ea.collect import already_collected, fetch_pages, get_json, minimize, write_line
-from ea.config import paths
+from ea.config import check_collection_allowed, paths
 from ea.pseudonymize import load_key
 
 import pandas as pd
@@ -33,6 +33,7 @@ def thread_ids(cfg):
 
 
 def collect_threads(cfg, session=None, limit=None):
+    check_collection_allowed(cfg)
     session = session or requests.Session()
     key = load_key()
     base = cfg["collect"]["api_base"]

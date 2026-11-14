@@ -478,3 +478,32 @@ def test_ira2018_convert_hashes_everyone_and_drops_text(cfg):
     posts, comments = collect.load_collected(cfg)
     table = network.mixing_table(network.build_edges(posts, comments), network.load_seeds(cfg))
     assert table.loc["post_reply", "seed"] == 1 and table.loc["post_reply", "other"] == 1
+
+
+# ---------- Reddit collection is paused ----------
+
+def test_reddit_collection_is_refused_while_paused(cfg):
+    """Every stage that would fetch Reddit data stops before its first request."""
+    from ea import threads
+    from ea.config import CollectionPaused
+    cfg["source"] = "reddit"                    # what the real configs say
+    fake = FakeArcticShift([], [])
+    for fetch in (lambda: collect.measure_volumes(cfg, session=fake),
+                  lambda: collect.measure_topic_share(cfg, session=fake),
+                  lambda: collect.collect(cfg, session=fake),
+                  lambda: collect.collect_from_dumps(cfg, "posts.jsonl", "comments.jsonl"),
+                  lambda: seeds.fetch_reddit_2018(cfg, session=fake),
+                  lambda: threads.collect_threads(cfg, session=fake)):
+        with pytest.raises(CollectionPaused):
+            fetch()
+    assert fake.calls == 0
+    assert not cfg["data_dir"].exists()
+
+
+def test_shipped_configs_keep_reddit_paused_and_untrainable():
+    for name in ("immigration.toml", "ira2018.toml"):
+        shipped = load_config(Path(__file__).parent.parent / "config" / name)
+        assert shipped["source"] == "reddit"
+        assert shipped["collect"]["reddit_collection_permitted"] is False
+        with pytest.raises(model.TrainingNotAllowed):
+            model.check_training_allowed(shipped["source"], shipped)

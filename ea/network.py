@@ -345,12 +345,12 @@ def nanmean(values):
 # ---------- the report ----------
 
 def load_seeds(cfg):
-    """Seeds are the accounts in the seeds file, or else the labeled A/B/C accounts."""
+    """Seeds are the accounts in the seeds file, or else the accounts labeled as software typing."""
     seeds_file = paths(cfg)["seeds"]
     if seeds_file.exists():
         return set(pd.read_csv(seeds_file, dtype=str)["author_hash"])
     labels = pd.read_csv(paths(cfg)["labels"], dtype=str)
-    return set(labels[labels["label"].isin(["A", "B", "C"])]["author_hash"])
+    return set(labels[labels["who_types"].isin(["program", "person_plus_automation"])]["author_hash"])
 
 
 def analyze(posts, comments, seeds, shuffles=200, trials=100):

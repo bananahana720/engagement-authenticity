@@ -72,7 +72,9 @@ All text is built from invented words, so nothing it writes could be posted anyw
 
 ## Run it on real data
 
-Read [docs/DATA_TERMS.md](docs/DATA_TERMS.md) first.
+**Reddit collection is paused.** Steps 1 and 2 below, and the `seed-list` and `threads`
+stages, refuse to run and fetch nothing while the configs say
+`reddit_collection_permitted = false`. Read [docs/DATA_TERMS.md](docs/DATA_TERMS.md) first.
 
 1. `python -m ea volumes` counts comments per subreddit per month, and `python -m ea topic-share` counts how many threads and comments match the topic keywords. Look at the numbers before downloading anything: they decide which subreddits are practical.
 2. `python -m ea collect --only immigration` downloads one subreddit. It is slow on purpose (one request a second to a free community service) and can be stopped and restarted.

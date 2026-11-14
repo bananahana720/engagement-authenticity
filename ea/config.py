@@ -12,6 +12,22 @@ def load_config(path):
     return cfg
 
 
+class CollectionPaused(Exception):
+    pass
+
+
+def check_collection_allowed(cfg):
+    """Stop before any request for Reddit data. Reddit collection is paused (docs/DATA_TERMS.md).
+
+    Every stage that would fetch Reddit data calls this first. The pause lifts only when
+    the config records it: [collect] reddit_collection_permitted = true.
+    """
+    if cfg.get("source") == "reddit" and not cfg.get("collect", {}).get("reddit_collection_permitted", False):
+        raise CollectionPaused(
+            "Reddit collection is paused, so nothing was fetched. "
+            "See the Status section of docs/DATA_TERMS.md.")
+
+
 def all_subreddits(cfg):
     subs = cfg["subreddits"]
     return subs["all_threads"] + subs["filtered"] + subs.get("city", [])
