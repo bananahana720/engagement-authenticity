@@ -1,0 +1,106 @@
+# Topic 2 on Bluesky: the Russia-Ukraine war.
+# Bluesky's stream is live only, so collection starts the day you first run it.
+
+name = "bluesky_russia_ukraine"
+source = "bluesky"          # where the data comes from; see docs/SOURCES.md
+data_dir = "data/bluesky_russia_ukraine"
+reports_dir = "reports/bluesky_russia_ukraine"
+
+# The window the later stages look at. Widen it as collection continues.
+start = "2026-11-01"
+end = "2027-03-01"          # exclusive
+train_end = "2027-01-01"    # train: start..train_end, test: train_end..end
+
+[topics]
+# Case-insensitive, matched on word boundaries against the text of each post.
+# Tighter than the Reddit title list: bare "ICE", "border", "visa" and "raid" match
+# too much everyday talk when applied to whole posts rather than titles.
+# Every topic here is counted. Only [bluesky].collect_topic is collected.
+immigration = [
+    "immigration", "immigrant", "immigrants", "migrant", "migrants",
+    "deport", "deported", "deporting", "deportation", "deportations",
+    "ICE agents", "ICE agent", "ICE raid", "ICE raids", "ICE detention", "ICE arrests",
+    "border patrol", "CBP", "asylum seekers", "asylum seeker", "undocumented",
+    "illegal alien", "illegal aliens", "sanctuary city", "sanctuary cities",
+    "detention center", "DACA",
+]
+# English, Ukrainian and Russian spellings.
+russia_ukraine = [
+    "Ukraine", "Ukrainian", "Ukrainians", "Kyiv", "Kharkiv", "Donbas", "Zelensky", "Zelenskyy",
+    "Putin", "Kremlin", "Russian invasion", "Russian army", "Russian drones",
+    "Україна", "України", "Украина", "Украины", "Путин", "Путін",
+]
+
+[topics_capitals_only]
+# Matched only when written in capitals, so "ICE" counts and "ice cream" does not.
+immigration = ["ICE"]
+
+[bluesky]
+collect_topic = "russia_ukraine"
+# Records in which an account states whether its posts may be reused. An account that
+# says no to "bulk datasets" is never stored. The name comes from Bluesky's draft
+# proposal and is a placeholder there: update it when the proposal is adopted.
+reuse_declarations = ["org.user-intents.declaration"]
+# Jetstream: Bluesky's public JSON stream. No account or key. Tried in order.
+# Each address ends with the name of its filter; the code adds the kinds of record wanted.
+stream_urls = [
+    "wss://jetstream.us-east.bsky.network/xrpc/network.bsky.jetstream.subscribeEvents?collections=",
+    "wss://jetstream2.us-east.bsky.network/subscribe?wantedCollections=",
+    "wss://jetstream1.us-west.bsky.network/subscribe?wantedCollections=",
+]
+api_base = "https://public.api.bsky.app"    # the cached public API Bluesky asks developers to use
+seconds_between_requests = 0.5
+
+# Which threads to fetch, per cycle. The busiest few for their size, the rest drawn at
+# random so that rates can be measured on them. Each stored thread start records which.
+busiest_threads = 25
+random_threads = 100
+
+# Long runs (python -m ea bluesky --hours 168): listen in cycles, and fetch each chosen
+# thread a day after it was chosen, once its replies have come in.
+cycle_minutes = 60
+fetch_after_hours = 24
+max_disk_mb = 4000                          # stop fetching when this topic's data folder reaches this size
+
+[bluesky.labelers]
+# Public labeler services whose labels on an account are kept, by this short name, as
+# possible ground truth. Weak labels: one team's judgment each, never a feature.
+# "timing-rules" is computed from posting times, like this project's own timing
+# features, so it must never be used to train or score a model.
+coordinated-abuse-labeler = "did:plc:saslbwamakedc4h6c5bmshvz"      # labeler.hailey.at
+network-labeler = "did:plc:uac6er53o2pvr5y2qmvaf7hw"                # pef-moderation.org
+undisclosed-bot-labeler = "did:plc:cdkysjo2taj2jpy3qoostthu"        # bottags.bsky.social
+kremlin-burner-labeler = "did:plc:2pduupjftektqoitfekc2x76"         # ab4n-labeler.bsky.social
+bot-net-labeler = "did:plc:5rqfefkxv5a3akkrmbqcb55g"                # moderation.blueat.net
+timing-rules = "did:plc:oubsyca6hhgqhmbbk27lvs7c"                   # stechlab-labels.bsky.social
+
+[coded_phrases]
+# Rallying phrases, tracked from both sides with equal-sized lists.
+# A COORDINATION signal only: who picks a phrase up, how fast, and in sync.
+# No side is recorded per account. A starter set: edit freely.
+kremlin_favoring = [
+    "special military operation", "denazification", "kiev regime", "proxy war",
+    "nato expansion", "biolabs", "coup of 2014", "ukronazi",
+]
+ukraine_favoring = [
+    "slava ukraini", "terrorist state", "orcs", "war criminal putin",
+    "russia is losing", "arm ukraine", "glory to the heroes", "ruscist",
+]
+
+[features]
+min_comments = 5
+fast_reply_seconds = 30
+near_duplicate_minutes = 60
+near_duplicate_jaccard = 0.7
+co_engage_minutes = 5
+phrase_burst_minutes = 10
+phrase_burst_accounts = 3
+
+[clusters]
+min_shared_threads = 3
+min_duplicate_comments = 2
+min_accounts = 3
+
+[model]
+min_precision = 0.90
+test_account_share = 0.3

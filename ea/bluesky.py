@@ -27,9 +27,11 @@ See docs/SOURCES.md for the terms this is built around.
 """
 
 import json
+import random
 import re
 import time
 from collections import Counter
+from datetime import datetime, timezone
 
 import pandas as pd
 import requests
@@ -90,26 +92,27 @@ def stream_events(urls, seconds, kinds=(POST,), connect=None):
     if connect is None:
         from websockets.sync.client import connect
     deadline = time.monotonic() + seconds
-    failures = 0
-    while time.monotonic() < deadline and failures < 3 * len(urls):
+    failures, heard_anything = 0, False
+    while time.monotonic() < deadline and (heard_anything or failures < 3 * len(urls)):
         url = stream_address(urls[failures % len(urls)], kinds)
         try:
             with connect(url, open_timeout=20, user_agent_header=USER_AGENT) as socket:
                 while time.monotonic() < deadline:
                     parsed = parse_event(json.loads(socket.recv(timeout=30)))
                     if parsed:
-                        failures = 0
+                        failures, heard_anything = 0, True
                         yield parsed
         except Exception as problem:            # dropped or refused: try the next address
             failures += 1
-            print(f"Stream problem on {url}: {type(problem).__name__}: {problem}")
-            time.sleep(2)
-    if failures >= 3 * len(urls):
+            say(f"Stream problem on {url}: {type(problem).__name__}: {problem}")
+            # A stream that worked earlier is worth waiting for; one that never worked is not.
+            time.sleep(min(2 * failures, 60))
+    if not heard_anything and failures >= 3 * len(urls):
         raise ConnectionError("Could not read the Bluesky stream from any configured address.")
 
 
 def listen(cfg, seconds, events=None):
-    """Step 1. Returns (volume table, thread addresses busiest first, deleted post ids,
+    """Step 1. Returns (volume table, on-topic posts seen per thread address, deleted post ids,
     accounts that opted out of bulk datasets, accounts that withdrew an opt-out).
 
     Thread addresses stay in memory only. Posts and accounts are returned already hashed.
@@ -153,12 +156,11 @@ def listen(cfg, seconds, events=None):
                     threads[root] += 1
 
     minutes = max((time.time() - started) / 60, 1e-9) if events is None else seconds / 60
-    busiest_first = [a for a, _ in threads.most_common()]
     volumes = volume_table(counts, list(patterns), minutes)
     if events is None and per_minute:
         tally = sorted(per_minute.values())
-        print(f"All posts per minute: quietest {tally[0]}, middle {tally[len(tally) // 2]}, busiest {tally[-1]}.")
-    return volumes, busiest_first, deleted, opted_out, opted_in
+        say(f"All posts per minute: quietest {tally[0]}, middle {tally[len(tally) // 2]}, busiest {tally[-1]}.")
+    return volumes, threads, deleted, opted_out, opted_in
 
 
 def volume_table(counts, topics, minutes):
@@ -178,12 +180,22 @@ def volume_table(counts, topics, minutes):
 
 # ---------- fetching threads and cutting them down ----------
 
-def fetch_thread(session, api_base, address, tries=3):
-    """One thread from the public API, or None when it is gone or unavailable."""
+def fetch_thread(session, api_base, address, labelers=(), tries=3):
+    """One thread from the public API, or None when it is gone or unavailable.
+
+    Naming labeler services asks the API to attach their labels as well as Bluesky's own.
+    """
     url = f"{api_base}/xrpc/app.bsky.feed.getPostThread"
     params = {"uri": address, "depth": 100, "parentHeight": 0}
+    headers = {"User-Agent": USER_AGENT}
+    if labelers:
+        headers["atproto-accept-labelers"] = ", ".join(labelers)
     for attempt in range(tries):
-        response = session.get(url, params=params, timeout=60, headers={"User-Agent": USER_AGENT})
+        try:
+            response = session.get(url, params=params, timeout=60, headers=headers)
+        except requests.RequestException:       # network dropped: wait and try again
+            time.sleep(10 * (attempt + 1))
+            continue
         if response.status_code == 200:
             return response.json().get("thread")
         if response.status_code == 400:         # deleted, blocked or not found
@@ -233,7 +245,7 @@ def minimize(post, key):
     return "comment", small
 
 
-def account_labels(post, key):
+def account_labels(post, key, named=None):
     """Moderation labels on a post's author, as small records. Withdrawn labels are skipped.
 
     A label an account puts on itself is marked, because it is a statement, not a finding.
@@ -241,65 +253,203 @@ def account_labels(post, key):
     author = post["author"]
     return [{"author_hash": pseudonym(author["did"], key), "label": label.get("val"),
              "self_applied": label.get("src") == author["did"],
-             "labeler": labeler_name(label.get("src", ""), author["did"], key)}
+             "labeler": labeler_name(label.get("src", ""), author["did"], key, named)}
             for label in author.get("labels") or [] if not label.get("neg")]
 
 
-def labeler_name(source, author, key):
+def named_labelers(cfg):
+    """Labeler service identifier -> the short name it is stored under.
+
+    Bluesky's own service and the public labeler services listed in the config are
+    stored by name. Any other labeler could be one person, so it is stored hashed.
+    """
+    listed = cfg["bluesky"].get("labelers", {})
+    return {BLUESKY_MODERATION: "bluesky-moderation", **{did: name for name, did in listed.items()}}
+
+
+def labeler_name(source, author, key, named=None):
     if source == author:
         return ""
-    return "bluesky-moderation" if source == BLUESKY_MODERATION else pseudonym(source, key)
+    named = named or {BLUESKY_MODERATION: "bluesky-moderation"}
+    return named.get(source) or pseudonym(source, key)
 
 
-# ---------- the whole run ----------
+# ---------- choosing and storing threads ----------
 
-def collect(cfg, minutes, session=None, events=None):
-    """Listen, then fetch and store the busiest on-topic threads. Returns the volume table."""
-    session = session or requests.Session()
+def say(text):
+    """Print with the time, at once, so a log file shows progress while a long run goes on."""
+    print(f"{datetime.now(timezone.utc):%Y-%m-%d %H:%M:%S} UTC  {text}", flush=True)
+
+
+def pick_threads(threads, settings, rng, already=frozenset(), key=None):
+    """Choose which on-topic threads to fetch. Returns [(address, how it was picked)].
+
+    The busiest few are taken for their size. The rest are drawn at random, so that
+    rates can be measured on the random ones: busy threads alone over-state everything.
+    Without a `random_threads` setting, only the busiest are taken (the first samples
+    were collected that way).
+    """
+    fresh = [a for a, _ in threads.most_common() if key is None or pseudonym(a, key) not in already]
+    if "random_threads" not in settings:
+        return [(a, "busiest") for a in fresh[:settings["max_threads"]]]
+    n_busiest = settings.get("busiest_threads", 0)
+    busiest, rest = fresh[:n_busiest], fresh[n_busiest:]
+    drawn = rng.sample(rest, min(settings["random_threads"], len(rest)))
+    return [(a, "busiest") for a in busiest] + [(a, "random") for a in drawn]
+
+
+def store_threads(cfg, picks, folder, session, deleted=frozenset(), opted_out=frozenset(), cycle=0):
+    """Fetch each picked thread, cut it down, and append it to the files in `folder`.
+
+    Returns how many thread starts and replies were written.
+    """
     key = load_key()
     settings = cfg["bluesky"]
-    volumes, threads, deleted, opted_out, opted_in = listen(cfg, minutes * 60, events)
-
-    report = paths(cfg)["volumes"]
-    report.parent.mkdir(parents=True, exist_ok=True)
-    volumes.to_csv(report, index=False)
-
-    folder = paths(cfg)["collected"] / COMMUNITY
+    named = named_labelers(cfg)
     folder.mkdir(parents=True, exist_ok=True)
     files = {"post": folder / "posts.jsonl", "comment": folder / "comments.jsonl"}
-    labels_path, opt_out_path = folder / "labels.jsonl", folder / "opted_out.jsonl"
-
-    # Everyone who has ever opted out, minus those who have since withdrawn it.
-    opted_out = (stored_values(opt_out_path, "author_hash") | opted_out) - opted_in
-    opt_out_path.write_text("".join(json.dumps({"author_hash": a}) + "\n" for a in sorted(opted_out)))
-
+    labels_path = folder / "labels.jsonl"
     seen = {kind: stored_values(path, "id") for kind, path in files.items()}
     seen_labels = {json.dumps(row, sort_keys=True) for row in read_lines(labels_path)}
     written = Counter()
     with open(files["post"], "a") as posts_file, open(files["comment"], "a") as comments_file, \
          open(labels_path, "a") as labels_file:
         out = {"post": posts_file, "comment": comments_file}
-        for address in threads[:settings["max_threads"]]:
-            for raw in walk(fetch_thread(session, settings["api_base"], address)):
+        for address, how in picks:
+            thread = fetch_thread(session, settings["api_base"], address, list(named))
+            for raw in walk(thread):
                 kind, small = minimize(raw, key)
                 if small["author_hash"] in opted_out or small["id"] in deleted:
                     continue
+                if kind == "post":
+                    small.update(picked=how, cycle=cycle)       # lets rates be weighted later
                 if small["id"] not in seen[kind]:
                     write_line(out[kind], small)
                     seen[kind].add(small["id"])
                     written[kind] += 1
-                for label in account_labels(raw, key):
+                for label in account_labels(raw, key, named):
                     if json.dumps(label, sort_keys=True) not in seen_labels:
                         write_line(labels_file, label)
                         seen_labels.add(json.dumps(label, sort_keys=True))
             time.sleep(settings["seconds_between_requests"])
+    return written["post"], written["comment"]
 
-    forgotten = sum(forget(path, "id", deleted) for path in files.values())
-    withdrawn = sum(forget(path, "author_hash", opted_out) for path in [*files.values(), labels_path])
-    print(f"Threads touched by the topic: {len(threads)}. Stored {written['post']} thread starts "
-          f"and {written['comment']} replies. Removed {forgotten} posts their authors deleted "
-          f"and {withdrawn} records from accounts that opted out of datasets.")
+
+def remember_opt_outs(cfg, opted_out, opted_in):
+    """Everyone who has ever opted out of datasets, minus those who have since withdrawn it."""
+    path = paths(cfg)["collected"] / COMMUNITY / "opted_out.jsonl"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    everyone = (stored_values(path, "author_hash") | opted_out) - opted_in
+    path.write_text("".join(json.dumps({"author_hash": a}) + "\n" for a in sorted(everyone)))
+    return everyone
+
+
+def apply_removals(cfg, deleted, opted_out):
+    """Drop deleted posts and opted-out accounts from every Bluesky folder. Returns (posts, records) removed."""
+    forgotten = withdrawn = 0
+    for folder in sorted(paths(cfg)["collected"].glob(COMMUNITY + "*")):
+        for name in ("posts.jsonl", "comments.jsonl"):
+            forgotten += forget(folder / name, "id", deleted)
+        for name in ("posts.jsonl", "comments.jsonl", "labels.jsonl"):
+            withdrawn += forget(folder / name, "author_hash", opted_out)
+    return forgotten, withdrawn
+
+
+# ---------- one short run ----------
+
+def collect(cfg, minutes, session=None, events=None):
+    """Listen, then fetch and store on-topic threads straight away. Returns the volume table."""
+    session = session or requests.Session()
+    volumes, threads, deleted, opted_out, opted_in = listen(cfg, minutes * 60, events)
+
+    report = paths(cfg)["volumes"]
+    report.parent.mkdir(parents=True, exist_ok=True)
+    volumes.to_csv(report, index=False)
+
+    opted_out = remember_opt_outs(cfg, opted_out, opted_in)
+    picks = pick_threads(threads, cfg["bluesky"], random.Random(0))
+    starts, replies = store_threads(cfg, picks, paths(cfg)["collected"] / COMMUNITY, session, deleted, opted_out)
+    forgotten, withdrawn = apply_removals(cfg, deleted, opted_out)
+    say(f"Threads touched by the topic: {len(threads)}. Stored {starts} thread starts "
+        f"and {replies} replies. Removed {forgotten} posts their authors deleted "
+        f"and {withdrawn} records from accounts that opted out of datasets.")
     return volumes
+
+
+# ---------- a long run, in cycles ----------
+
+def run(cfg, hours, session=None, cycles=None):
+    """Listen for days. Each cycle: listen, choose threads, and fetch the threads chosen a day ago.
+
+    Waiting a day before fetching lets a thread collect its replies first. Chosen thread
+    addresses wait in memory only, so stopping the run loses the threads not yet fetched,
+    and nothing identifying is ever on disk. Each day's records go in their own folder.
+    Stream drops are ridden out: the run waits a minute and listens again.
+
+    `cycles` is for tests: a list of event lists, one per cycle, in place of the live stream.
+    """
+    session = session or requests.Session()
+    key = load_key()
+    settings = cfg["bluesky"]
+    cycle_seconds = settings["cycle_minutes"] * 60
+    wait = 0 if cycles is not None else settings["fetch_after_hours"] * 3600
+    rng = random.Random()
+    waiting, chosen = [], set()         # (fetch time, address, how picked); hashed addresses ever chosen
+    end = time.time() + hours * 3600
+    cycle = 0
+    log = paths(cfg)["volumes"].with_name("cycles.csv")
+    log.parent.mkdir(parents=True, exist_ok=True)
+
+    while (cycle < len(cycles)) if cycles is not None else (time.time() < end):
+        started = int(time.time())
+        try:
+            events = cycles[cycle] if cycles is not None else None
+            volumes, threads, deleted, opted_out, opted_in = listen(cfg, min(cycle_seconds, end - started), events)
+        except ConnectionError as problem:
+            say(f"{problem} Waiting a minute.")
+            time.sleep(60)
+            continue
+        cycle += 1
+
+        picks = pick_threads(threads, settings, rng, chosen, key)
+        chosen.update(pseudonym(address, key) for address, _ in picks)
+        waiting += [(started + wait, address, how) for address, how in picks]
+        due = [(a, how) for when, a, how in waiting if when <= time.time()]
+        waiting = [item for item in waiting if item[0] > time.time()]
+
+        opted_out = remember_opt_outs(cfg, opted_out, opted_in)
+        starts = replies = 0
+        if megabytes(cfg["data_dir"]) < settings["max_disk_mb"]:
+            folder = paths(cfg)["collected"] / f"{COMMUNITY}-{datetime.now(timezone.utc):%Y-%m-%d}"
+            starts, replies = store_threads(cfg, due, folder, session, deleted, opted_out, started)
+        elif due:
+            say(f"Disk limit of {settings['max_disk_mb']} MB reached: {len(due)} threads were not fetched.")
+        forgotten, withdrawn = apply_removals(cfg, deleted, opted_out)
+
+        volumes.insert(0, "cycle", started)
+        volumes.to_csv(paths(cfg)["volumes"], mode="a", index=False, header=not paths(cfg)["volumes"].exists())
+        row = pd.DataFrame([{
+            "cycle": started, "threads_touched": len(threads),
+            "picked_busiest": sum(how == "busiest" for _, how in picks),
+            "picked_random": sum(how == "random" for _, how in picks),
+            "fetched_threads": len(due), "stored_thread_starts": starts, "stored_replies": replies,
+            "removed_deleted": forgotten, "removed_opted_out": withdrawn, "threads_waiting": len(waiting)}])
+        row.to_csv(log, mode="a", index=False, header=not log.exists())
+        say(f"Cycle {cycle}: {len(threads)} threads touched, {len(picks)} chosen, {len(due)} fetched, "
+            f"{starts} thread starts and {replies} replies stored, {len(waiting)} threads waiting.")
+
+    # The run is over: fetch what is still waiting, young as it is, rather than lose it.
+    if waiting and megabytes(cfg["data_dir"]) < settings["max_disk_mb"]:
+        folder = paths(cfg)["collected"] / f"{COMMUNITY}-{datetime.now(timezone.utc):%Y-%m-%d}"
+        starts, replies = store_threads(cfg, [(a, how) for _, a, how in waiting], folder, session,
+                                        opted_out=stored_values(paths(cfg)["collected"] / COMMUNITY / "opted_out.jsonl",
+                                                                "author_hash"), cycle=int(time.time()))
+        say(f"End of run: fetched the {len(waiting)} threads still waiting: {starts} thread starts, {replies} replies.")
+    return log
+
+
+def megabytes(folder):
+    return sum(f.stat().st_size for f in folder.rglob("*") if f.is_file()) / 1e6 if folder.exists() else 0.0
 
 
 def read_lines(path):
@@ -314,9 +464,19 @@ def stored_values(path, field):
 
 
 def forget(path, field, values):
-    """Remove stored records whose field is in values. Returns how many went."""
-    rows = read_lines(path)
-    kept = [row for row in rows if row[field] not in values]
-    if len(kept) < len(rows):
-        path.write_text("".join(json.dumps(row) + "\n" for row in kept))
-    return len(rows) - len(kept)
+    """Remove stored records whose field is in values. Returns how many went.
+
+    Reads line by line, so a large file never has to fit in memory.
+    """
+    if not path.exists() or not values:
+        return 0
+    kept, dropped = [], 0
+    with open(path) as f:
+        for line in f:
+            if line.strip() and json.loads(line)[field] in values:
+                dropped += 1
+            else:
+                kept.append(line)
+    if dropped:
+        path.write_text("".join(kept))
+    return dropped

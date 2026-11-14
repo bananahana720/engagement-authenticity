@@ -49,8 +49,30 @@ stream_urls = [
     "wss://jetstream1.us-west.bsky.network/subscribe?wantedCollections=",
 ]
 api_base = "https://public.api.bsky.app"    # the cached public API Bluesky asks developers to use
-max_threads = 600                           # per run: the busiest on-topic threads are fetched first
 seconds_between_requests = 0.5
+
+# Which threads to fetch, per cycle. The busiest few for their size, the rest drawn at
+# random so that rates can be measured on them. Each stored thread start records which.
+busiest_threads = 25
+random_threads = 100
+
+# Long runs (python -m ea bluesky --hours 168): listen in cycles, and fetch each chosen
+# thread a day after it was chosen, once its replies have come in.
+cycle_minutes = 60
+fetch_after_hours = 24
+max_disk_mb = 4000                          # stop fetching when this topic's data folder reaches this size
+
+[bluesky.labelers]
+# Public labeler services whose labels on an account are kept, by this short name, as
+# possible ground truth. Weak labels: one team's judgment each, never a feature.
+# "timing-rules" is computed from posting times, like this project's own timing
+# features, so it must never be used to train or score a model.
+coordinated-abuse-labeler = "did:plc:saslbwamakedc4h6c5bmshvz"      # labeler.hailey.at
+network-labeler = "did:plc:uac6er53o2pvr5y2qmvaf7hw"                # pef-moderation.org
+undisclosed-bot-labeler = "did:plc:cdkysjo2taj2jpy3qoostthu"        # bottags.bsky.social
+kremlin-burner-labeler = "did:plc:2pduupjftektqoitfekc2x76"         # ab4n-labeler.bsky.social
+bot-net-labeler = "did:plc:5rqfefkxv5a3akkrmbqcb55g"                # moderation.blueat.net
+timing-rules = "did:plc:oubsyca6hhgqhmbbk27lvs7c"                   # stechlab-labels.bsky.social
 
 [coded_phrases]
 # Same lists as the Reddit topic. A COORDINATION signal only; no side is recorded per account.

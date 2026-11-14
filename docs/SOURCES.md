@@ -180,6 +180,23 @@ How to read these:
 3. **Replace TwiBot-22** as the training set, or find a route to it. Options: the X information operations archive (needs an email address), or planted synthetic behavior only.
 4. **Backfill** past weeks of on-topic Bluesky threads from public account histories.
 
+## Where this stopped (paused 2026-11-14)
+
+Andrew paused the project until the following week. State at the pause:
+
+**Built and tested, not yet run on real data** (this branch):
+- `python -m ea bluesky --hours 168` runs for days in hourly cycles. Each cycle listens, picks the 25 busiest on-topic threads and 100 drawn at random, and fetches them a day later once their replies are in. Each stored thread start records `picked = busiest | random`, so rates can be measured on the random ones. Each day's records go in their own folder. Stream drops are ridden out. Fetching stops at 4,000 MB per topic.
+- `config/bluesky_russia_ukraine.toml`: the second topic, same settings, its own phrase lists.
+- The collector asks the API for the labels of five independent labeler services and stores them by short name, hashed per account. The timing-rule labeler is stored as `timing-rules` and must never be used for training.
+
+**Not started:**
+1. The week-long listen on Andrew's computer. Before starting: check free disk space, then start one run per topic with `nohup`, in the worktree `~/Projects/engagement-authenticity-bluesky` after updating it to main.
+2. Joining collected accounts to Bluesky takedowns (from the moderation label stream, `!takedown` on accounts) as a second weak label.
+3. Talking-point clustering with a small local embedding model, to fill the `point` column that `ea/network_features.py` expects, then running the fused cross-account signals on the 6-hour data.
+4. Reporting per-label overlap, cluster results and any coordinated groups found, in aggregate only.
+
+Nothing is running on Andrew's computer. The 6-hour data and the label sample stay in the two worktrees' git-ignored `data/` folders.
+
 ## Open questions for the project owner
 
 1. A delete that happens while the collector is not running is missed. Stricter options: run the listener continuously, or re-check every stored post on a schedule, or drop all text older than N days.
