@@ -7,13 +7,13 @@ no new accounts, use for collection, storage, model training and analysis?
 
 **Short answer: they are not all fair game. Bluesky is the one live source whose terms
 do not stand in the way. Telegram and YouTube forbid it outright. Mastodon varies by
-server. The best-known labeled bot dataset (TwiBot-22) needs an institutional email.**
+server and its community expects to be asked. The best-known labeled bot dataset (TwiBot-22) needs an institutional email.**
 
 ```
                     collect   store   train a   no sign-up   topic
                     posts             model     and $0       volume
  Bluesky              ✓        ✓       ~           ✓         measured below
- Mastodon             ~        ~       ✗ (main)    ~         low, unmeasured
+ Mastodon             ~        ~       ~           ~         low, unmeasured
  Hacker News (API)    ✓        ✓       ~           ✓         very low
  Telegram             ✗        ✗       ✗           ✗         high, off limits
  YouTube              ✗        ✗       ~           ✗         high, off limits
@@ -30,11 +30,11 @@ permission in writing; it means no clause forbids it.
 | Source | Verdict | The clause that decides it | Access and cost | Labeled ground truth |
 | --- | --- | --- | --- | --- |
 | **Bluesky** | **Use. Primary source.** | Stream docs: "No authentication is required for the live tail; these instances serve the full network." Firehose docs: "No authentication is required." Terms of Service (updated 2025-08-14): "Bluesky does not control how others may use your Content." Terms, Privacy Policy and Community Guidelines are silent on scraping, research, model training and inferring political views. | Jetstream (public JSON stream) and `public.api.bsky.app` ("These direct endpoints do not support authentication"). No account, no key, $0. Live only: history needs a separate backfill. | None published. Candidates to test: Bluesky's own moderation labels and account takedown events (see "Next"). |
-| **Mastodon / fediverse** | **Hold. Per-server decision.** | Mastodon's email to users, as quoted by The Register (2025-06-18): "training LLMs on the data of Mastodon users on our instances is not permitted." Applies to servers Mastodon itself runs; every other server sets its own rules. mastodon.social's own terms page could not be read (it needs a browser). | Public and hashtag timelines work without a token only "if the instance" allows public preview. Default limit: "300 times within 5 minutes". $0. | None. |
+| **Mastodon / fediverse** | **Hold. Per-server decision.** | mastodon.social's current terms (effective 2026-08-31) have no clause on scraping, research or model training. They say "Anyone, or any computer, might access your Content" and may "index and store your Content in search engines and databases", and "neither we, nor you, have control over these uses". In June 2025 Mastodon told users that "training LLMs on the data of Mastodon users on our instances is not permitted" (quoted by The Register); that wording is not in the terms now in force. Every other server sets its own rules, so each one needs its own read. | mastodon.social serves hashtag feeds publicly (`hashtag_feeds: public`) and has switched its live feeds off. Default limit: "300 times within 5 minutes". $0. | None. |
 | **Telegram** | **Do not collect.** | Content Licensing terms: "Telegram firmly prohibits the scraping, indexing, harvesting, aggregation or use of data obtained from its platform" to "train, fine-tune, validate or otherwise engage in the development" of AI. Terms of Service: the ban applies "to all users, businesses, and third-party services accessing the platform." Bot terms: "Always prohibited uses include any form of data collection aimed at creating large datasets, machine learning models". No research exception; the only exception is per-user consent. | The API needs "your own api_id", which needs an account and phone number. | Published sets only (below). |
 | **YouTube comments** | **Blocked. Stays parked.** | Researcher Program: "Be a student, research-focused staff, or faculty member affiliated with an accredited, higher-education institution". The Data API needs a Google Cloud project (a sign-up). Developer Policies also ban scraping and cap storage at 30 days (read from a summary of the page, not word for word). | API key required; higher quota only through the Researcher Program. | None. |
 | **Hacker News** | **Allowed through the official API only. Poor fit.** | API README: "we're making the public Hacker News data available in near real time" and "There is currently no rate limit." Site terms forbid the other route: "you will not engage in or use any data mining, robots, scraping or similar data gathering or extraction methods." | Official Firebase API, no key, $0. | None. Politics is a small share of the site (from general knowledge, not measured). |
-| **X, live collection** | **Do not collect.** Already decided: no paid pull. | X's developer agreement and terms pages could not be read this time (the pages refused automated reading). Not re-verified here. | Paid API. | See published sets. |
+| **X, live collection** | **Do not collect.** Already decided: no paid pull. | Developer Agreement (updated 2026-04-27) forbids using "the X API or X Content to fine-tune or train a foundation or frontier model" and using it "to derive or obtain non-public information of individual X users". Sharing is limited: "you may only distribute Post IDs, Direct Message IDs, and/or User IDs". | Paid API. | See published sets. |
 
 ## Published datasets
 
@@ -77,7 +77,7 @@ a floor, not an estimate.
   - The stream is live only. Past events need a backfill of account histories, which is not built.
   - Known Russia-Ukraine influence operations run mostly on Telegram and X, which are off limits. For that topic, published sets (the X archive, Pushshift Telegram) are the route, not live collection.
   - There is no labeled bot data for Bluesky.
-- **Not verified:** Bluesky has a proposal for users to state whether they allow reuse of their posts in datasets and AI training. The proposal page could not be read, so whether it is in force is unknown. If it is, the collector should respect it.
+- **A norm to respect, not a rule:** Bluesky's draft proposal "User Intents for Data Reuse" would let each account state whether it allows "generative AI", "protocol bridging", "bulk datasets" and "public archiving and preservation". It calls itself "This draft proposal", and says the signal "does carry ethical weight, but is not legally enforceable." It expects that "Companies and research teams building AI training sets are expected to respect this intent when they see it". Whether accounts can set it today was not checked. The collector does not read it yet: see "Next".
 
 ## What the collector does about each duty
 
@@ -94,9 +94,10 @@ text, acting in step), not from the wording of posts.
 
 ## Next
 
-1. **Ground truth on Bluesky.** Test whether Bluesky's moderation labels (spam, impersonation) and account takedown events on the stream can serve as labels, the way removal flags do on Reddit. The protocol allows labels to be public; whether Bluesky's own are was not checked.
+1. **Ground truth on Bluesky.** Test whether Bluesky's moderation labels (spam, impersonation) and account takedown events on the stream can serve as labels, the way removal flags do on Reddit. Bluesky's moderation service answers label queries without an account (checked: the query returned a list of labels). What the labels cover, and how many accounts carry one, is not yet measured.
 2. **Replace TwiBot-22** as the training set, or find a route to it. Options: the X information operations archive (needs an email address), or planted synthetic behavior only.
-3. **Backfill** past weeks of on-topic Bluesky threads from public account histories.
+3. **Respect reuse preferences.** Find out whether accounts can already state a "bulk datasets" preference, and if so skip accounts that say no.
+4. **Backfill** past weeks of on-topic Bluesky threads from public account histories.
 
 ## Open questions for the project owner
 
