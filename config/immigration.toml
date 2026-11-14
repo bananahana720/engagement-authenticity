@@ -1,0 +1,77 @@
+# Topic 1: immigration enforcement and deportation on Reddit.
+# Everything the pipeline needs to know about the topic lives in this file.
+
+name = "immigration"
+source = "reddit"           # where the data comes from; decides whether models may be trained on it
+data_dir = "data/immigration"
+reports_dir = "reports/immigration"
+
+# Arctic Shift monthly dumps run through 2026-09 (checked 2026-11-14).
+start = "2026-01-01"
+end = "2026-10-01"          # exclusive
+
+# Train on the earlier window, test on the later one. Never a random split across time.
+train_end = "2026-07-01"    # train: start..train_end, test: train_end..end
+
+[subreddits]
+# Every thread counts as on topic here.
+all_threads = ["immigration"]
+# Only threads whose title matches [topic].title_keywords are collected here.
+filtered = [
+    "politics", "Conservative", "news", "moderatepolitics",
+    "AskConservatives", "AskALiberal", "PoliticalDiscussion",
+]
+# City subreddits, for local spikes after enforcement operations. A starter guess:
+# change this list once you pick which operations to study.
+city = ["LosAngeles", "chicago", "Minneapolis", "nyc", "Portland", "CharlotteNC"]
+
+[topic]
+# Case-insensitive, matched on word boundaries against post titles.
+title_keywords = [
+    "immigration", "immigrant", "immigrants", "migrant", "migrants",
+    "deport", "deported", "deportation", "deportations",
+    "ICE", "CBP", "border patrol", "asylum", "undocumented", "illegal alien",
+    "sanctuary city", "sanctuary cities", "detention center", "DACA", "visa",
+    "border", "raid", "raids",
+]
+
+[coded_phrases]
+# Rallying phrases, tracked from both sides with equal-sized lists.
+# They are a COORDINATION signal only: who picks a phrase up, how fast, and in sync.
+# The pipeline never records which list an account uses. A starter set: edit freely.
+enforcement_favoring = [
+    "illegal aliens", "invasion", "self-deport", "anchor baby", "chain migration",
+    "remigration", "catch and release", "open borders",
+]
+enforcement_opposing = [
+    "abolish ice", "no human is illegal", "gestapo", "secret police", "kidnapped by ice",
+    "concentration camps", "disappeared", "masked agents",
+]
+
+[collect]
+api_base = "https://arctic-shift.photon-reddit.com"
+seconds_between_requests = 1.0      # a free community service: stay slow
+
+[features]
+min_comments = 5                    # accounts with fewer comments in a window get no feature row
+fast_reply_seconds = 30
+near_duplicate_minutes = 60
+near_duplicate_jaccard = 0.7
+co_engage_minutes = 5
+phrase_burst_minutes = 10
+phrase_burst_accounts = 3
+
+[clusters]
+# Two accounts are linked by either rule; linked accounts form a cluster.
+# First guesses, not yet checked against labeled data.
+min_shared_threads = 3              # same thread within co_engage_minutes, this many threads
+min_duplicate_comments = 2          # near-duplicate comments between the two accounts
+min_accounts = 3                    # smallest group that counts as a cluster
+
+[model]
+# Reddit's terms need Reddit's permission before training a model on Reddit data.
+# Until that permission exists, leave this false: "python -m ea train" will refuse,
+# and Reddit data is scored with a model trained on non-Reddit data.
+reddit_training_permitted = false
+min_precision = 0.90                # operating point: precision first, then report the recall it costs
+test_account_share = 0.3
