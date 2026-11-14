@@ -309,3 +309,113 @@ def test_end_to_end_on_synthetic_data(cfg):
     assert "power users" in report                                      # control-group table is filled
     # The report is aggregate: no account hash appears in it.
     assert not any(h in report for h in predictions["author_hash"])
+
+
+# ---------- Bluesky collect ----------
+
+from ea import bluesky
+
+ROOT = "at://did:plc:alice/app.bsky.feed.post/r1"
+REPLY = "at://did:plc:bob/app.bsky.feed.post/r2"
+
+
+def new_layout(did, rkey, record, operation="create"):
+    return {"$type": "message", "payload": {"did": did, "operation": operation,
+            "collection": "app.bsky.feed.post", "rkey": rkey, "record": record}}
+
+
+def old_layout(did, rkey, record, operation="create"):
+    return {"did": did, "kind": "commit", "commit": {"operation": operation,
+            "collection": "app.bsky.feed.post", "rkey": rkey, "record": record}}
+
+
+def thread_post(uri, did, handle, text, reply=None, labels=()):
+    record = {"text": text, "createdAt": "1999-01-01T00:00:00Z"}
+    if reply:
+        record["reply"] = {"root": {"uri": reply[0]}, "parent": {"uri": reply[1]}}
+    return {"uri": uri, "indexedAt": "2026-11-14T12:00:00Z", "record": record,
+            "author": {"did": did, "handle": handle, "displayName": "Real Name",
+                       "labels": [{"val": v} for v in labels]}}
+
+
+@pytest.fixture
+def bsky_cfg(tmp_path, monkeypatch):
+    monkeypatch.setenv("EA_PSEUDONYM_KEY", "test-key")
+    cfg = load_config(Path(__file__).parent.parent / "config" / "bluesky_immigration.toml")
+    cfg["data_dir"], cfg["reports_dir"] = tmp_path / "data", tmp_path / "reports"
+    cfg["bluesky"]["seconds_between_requests"] = 0
+    return cfg
+
+
+def test_bluesky_reads_both_stream_layouts_and_skips_other_events():
+    record = {"text": "hi"}
+    assert bluesky.parse_event(new_layout("did:plc:alice", "r1", record)) == ("create", ROOT, record)
+    assert bluesky.parse_event(old_layout("did:plc:alice", "r1", record)) == ("create", ROOT, record)
+    assert bluesky.parse_event({"did": "did:plc:alice", "kind": "identity"}) is None
+    like = old_layout("did:plc:alice", "r1", record)
+    like["commit"]["collection"] = "app.bsky.feed.like"
+    assert bluesky.parse_event(like) is None
+
+
+def test_bluesky_minimize_hashes_account_and_post_addresses():
+    kind, small = bluesky.minimize(thread_post(REPLY, "did:plc:bob", "bob.bsky.social", "a reply",
+                                               reply=(ROOT, ROOT)), b"k")
+    stored = json.dumps(small)
+    assert kind == "comment" and small["body"] == "a reply"
+    assert "did:plc" not in stored and "bob" not in stored and "Real Name" not in stored
+    assert small["link_id"] == pseudonym(ROOT, b"k") and small["parent_id"] == "t3_" + pseudonym(ROOT, b"k")
+    # The server's time is kept, not the 1999 date the posting app claimed.
+    assert small["created_utc"] == int(pd.Timestamp("2026-11-14T12:00:00Z").timestamp())
+    kind, small = bluesky.minimize(thread_post(ROOT, "did:plc:alice", "alice.example.com", "start"), b"k")
+    assert kind == "post" and small["title"] == "start" and "link_id" not in small
+
+
+def test_bluesky_disclosed_bots():
+    assert bluesky.is_disclosed_bot({"handle": "news-bot.bsky.social"})
+    assert bluesky.is_disclosed_bot({"handle": "x.bsky.social", "labels": [{"val": "bot"}]})
+    assert not bluesky.is_disclosed_bot({"handle": "talbot.bsky.social"})
+
+
+def test_bluesky_listen_counts_topics_and_remembers_threads(bsky_cfg):
+    events = [bluesky.parse_event(e) for e in [
+        new_layout("did:plc:alice", "r1", {"text": "New deportation flights today"}),
+        new_layout("did:plc:bob", "r2", {"text": "Deported where?",
+                                         "reply": {"root": {"uri": ROOT}, "parent": {"uri": ROOT}}}),
+        new_layout("did:plc:carol", "r3", {"text": "I like ice cream"}),
+        new_layout("did:plc:dan", "r4", {"text": "Kyiv was hit overnight"}),
+        new_layout("did:plc:erin", "r5", {}, operation="delete"),
+    ]]
+    volumes, threads, deleted = bluesky.listen(bsky_cfg, 60, events)
+    by_topic = volumes.set_index("topic")
+    assert by_topic.loc["all", "posts"] == 4
+    assert by_topic.loc["immigration", "posts"] == 2 and by_topic.loc["immigration", "replies"] == 1
+    assert by_topic.loc["russia_ukraine", "posts"] == 1
+    assert by_topic.loc["all", "posts_per_day_at_this_rate"] == 4 * 1440
+    assert threads == [ROOT]
+    assert deleted == {pseudonym("at://did:plc:erin/app.bsky.feed.post/r5", b"test-key")}
+
+
+class FakeBluesky:
+    """Stands in for the public API: one thread with a reply and a deleted reply."""
+    def get(self, url, params, timeout, headers):
+        thread = {"post": thread_post(ROOT, "did:plc:alice", "alice.bsky.social", "New deportation flights"),
+                  "replies": [{"post": thread_post(REPLY, "did:plc:bob", "bob.bsky.social", "Deported where?",
+                                                   reply=(ROOT, ROOT)), "replies": []},
+                              {"$type": "app.bsky.feed.defs#notFoundPost", "notFound": True}]}
+        return type("Response", (), {"status_code": 200, "json": lambda self: {"thread": thread}})()
+
+
+def test_bluesky_collect_writes_files_the_features_stage_can_load(bsky_cfg):
+    start = [bluesky.parse_event(new_layout("did:plc:alice", "r1", {"text": "New deportation flights"}))]
+    bluesky.collect(bsky_cfg, 1, session=FakeBluesky(), events=start)
+    bluesky.collect(bsky_cfg, 1, session=FakeBluesky(), events=start)      # a second run stores nothing twice
+    posts, comments = collect.load_collected(bsky_cfg)
+    assert len(posts) == 1 and len(comments) == 1
+    folder = paths(bsky_cfg)["collected"] / "bluesky"
+    assert "did:plc" not in (folder / "posts.jsonl").read_text() + (folder / "comments.jsonl").read_text()
+    assert paths(bsky_cfg)["volumes"].exists()
+
+    # The author of the reply deletes it; the next run that hears the delete removes it.
+    gone = [bluesky.parse_event(new_layout("did:plc:bob", "r2", {}, operation="delete"))]
+    bluesky.collect(bsky_cfg, 1, session=FakeBluesky(), events=gone)
+    assert (folder / "comments.jsonl").read_text() == ""

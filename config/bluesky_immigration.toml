@@ -1,0 +1,73 @@
+# Topic 1 on Bluesky: immigration enforcement and deportation.
+# Bluesky's stream is live only, so collection starts the day you first run it.
+
+name = "bluesky_immigration"
+source = "bluesky"          # where the data comes from; see docs/SOURCES.md
+data_dir = "data/bluesky_immigration"
+reports_dir = "reports/bluesky_immigration"
+
+# The window the later stages look at. Widen it as collection continues.
+start = "2026-11-01"
+end = "2027-03-01"          # exclusive
+train_end = "2027-01-01"    # train: start..train_end, test: train_end..end
+
+[topics]
+# Case-insensitive, matched on word boundaries against the text of each post.
+# Tighter than the Reddit title list: bare "ICE", "border", "visa" and "raid" match
+# too much everyday talk when applied to whole posts rather than titles.
+# Every topic here is counted. Only [bluesky].collect_topic is collected.
+immigration = [
+    "immigration", "immigrant", "immigrants", "migrant", "migrants",
+    "deport", "deported", "deporting", "deportation", "deportations",
+    "ICE agents", "ICE agent", "ICE raid", "ICE raids", "ICE detention", "ICE arrests",
+    "border patrol", "CBP", "asylum seekers", "asylum seeker", "undocumented",
+    "illegal alien", "illegal aliens", "sanctuary city", "sanctuary cities",
+    "detention center", "DACA",
+]
+# Counted only, to size the second topic. English, Ukrainian and Russian spellings.
+russia_ukraine = [
+    "Ukraine", "Ukrainian", "Ukrainians", "Kyiv", "Kharkiv", "Donbas", "Zelensky", "Zelenskyy",
+    "Putin", "Kremlin", "Russian invasion", "Russian army", "Russian drones",
+    "Україна", "України", "Украина", "Украины", "Путин", "Путін",
+]
+
+[bluesky]
+collect_topic = "immigration"
+# Jetstream: Bluesky's public JSON stream. No account or key. Tried in order.
+stream_urls = [
+    "wss://jetstream.us-east.bsky.network/xrpc/network.bsky.jetstream.subscribeEvents?collections=app.bsky.feed.post",
+    "wss://jetstream2.us-east.bsky.network/subscribe?wantedCollections=app.bsky.feed.post",
+    "wss://jetstream1.us-west.bsky.network/subscribe?wantedCollections=app.bsky.feed.post",
+]
+api_base = "https://public.api.bsky.app"    # the cached public API Bluesky asks developers to use
+max_threads = 300                           # per run: the busiest on-topic threads are fetched first
+seconds_between_requests = 0.5
+
+[coded_phrases]
+# Same lists as the Reddit topic. A COORDINATION signal only; no side is recorded per account.
+enforcement_favoring = [
+    "illegal aliens", "invasion", "self-deport", "anchor baby", "chain migration",
+    "remigration", "catch and release", "open borders",
+]
+enforcement_opposing = [
+    "abolish ice", "no human is illegal", "gestapo", "secret police", "kidnapped by ice",
+    "concentration camps", "disappeared", "masked agents",
+]
+
+[features]
+min_comments = 5
+fast_reply_seconds = 30
+near_duplicate_minutes = 60
+near_duplicate_jaccard = 0.7
+co_engage_minutes = 5
+phrase_burst_minutes = 10
+phrase_burst_accounts = 3
+
+[clusters]
+min_shared_threads = 3
+min_duplicate_comments = 2
+min_accounts = 3
+
+[model]
+min_precision = 0.90
+test_account_share = 0.3
