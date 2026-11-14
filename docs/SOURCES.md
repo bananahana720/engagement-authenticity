@@ -77,7 +77,7 @@ a floor, not an estimate.
   - The stream is live only. Past events need a backfill of account histories, which is not built.
   - Known Russia-Ukraine influence operations run mostly on Telegram and X, which are off limits. For that topic, published sets (the X archive, Pushshift Telegram) are the route, not live collection.
   - There is no labeled bot data for Bluesky.
-- **A norm to respect, not a rule:** Bluesky's draft proposal "User Intents for Data Reuse" would let each account state whether it allows "generative AI", "protocol bridging", "bulk datasets" and "public archiving and preservation". It calls itself "This draft proposal", and says the signal "does carry ethical weight, but is not legally enforceable." It expects that "Companies and research teams building AI training sets are expected to respect this intent when they see it". Whether accounts can set it today was not checked. The collector does not read it yet: see "Next".
+- **A norm to respect, not a rule:** Bluesky's draft proposal "User Intents for Data Reuse" would let each account state whether it allows "generative AI", "protocol bridging", "bulk datasets" and "public archiving and preservation". It calls itself "This draft proposal", and says the signal "does carry ethical weight, but is not legally enforceable." It expects that "Companies and research teams building AI training sets are expected to respect this intent when they see it". The draft names the record `org.user-intents.declaration` as a placeholder and has not been adopted, so no account can set it today. The collector already listens for it: see the duties table.
 
 ## What the collector does about each duty
 
@@ -86,18 +86,39 @@ a floor, not an estimate.
 | Do not abuse rate limits | Community Guidelines: do not "bypass, abuse, or disrupt Bluesky's systems, security features, APIs, rate limits" | One stream connection; half a second between thread requests; at most 300 threads a run; the cached public endpoint Bluesky asks developers to use. |
 | Delete what users delete | Developer Guidelines | Posts deleted before a thread is fetched are never stored. Deletes heard on the stream in any later run remove the stored post. Deletes that happen while nothing is listening are missed: see open question 1. |
 | Protect user data | Developer Guidelines: "reasonable security measures" | Account identifiers and post addresses are replaced by keyed hashes before writing. Handles, display names and profiles are never stored. |
+| Respect reuse preferences | Bluesky's draft "User Intents for Data Reuse" | The listener also watches for reuse declarations. An account that says no to "bulk datasets" is never stored, and anything already stored from it is removed. No answer means no stated preference, as the draft defines it. The record name is a setting, to update when the draft is adopted. |
 | Authenticity, never politics | Project rule | No field records a side. Topic keywords select threads, not accounts. |
 
 Model training on Bluesky data is not forbidden by any clause read. It is also not
 granted. The model here learns from numbers about behavior (reply times, repeated
 text, acting in step), not from the wording of posts.
 
+## Possible ground truth: Bluesky's moderation labels
+
+Bluesky's own moderation service publishes its labels, and answers queries without an
+account. Its declared labels include five that bear on this project:
+
+| Label | Bluesky's description |
+| --- | --- |
+| `inauthentic` | "Bot or a person pretending to be someone else." |
+| `spam` | "Unwanted, repeated, or unrelated actions that bother users." |
+| `engagement-farming` | "Insincere content or bulk actions aimed at gaining followers, including frequent follows, posts, and likes." |
+| `impersonation` | "Pretending to be someone else without permission." |
+| `scam` | "Scams, phishing & fraud." |
+
+The collector keeps the labels on each stored account in `labels.jsonl`, apart from
+the features, with the account hashed. A label an account puts on itself is marked as
+such. Labels are possible ground truth only; they are never a feature, or the model
+would learn to copy Bluesky's moderators.
+
+How many accounts carry these labels, and how often Bluesky withdraws one, is being
+measured.
+
 ## Next
 
 1. **Ground truth on Bluesky.** Test whether Bluesky's moderation labels (spam, impersonation) and account takedown events on the stream can serve as labels, the way removal flags do on Reddit. Bluesky's moderation service answers label queries without an account (checked: the query returned a list of labels). What the labels cover, and how many accounts carry one, is not yet measured.
 2. **Replace TwiBot-22** as the training set, or find a route to it. Options: the X information operations archive (needs an email address), or planted synthetic behavior only.
-3. **Respect reuse preferences.** Find out whether accounts can already state a "bulk datasets" preference, and if so skip accounts that say no.
-4. **Backfill** past weeks of on-topic Bluesky threads from public account histories.
+3. **Backfill** past weeks of on-topic Bluesky threads from public account histories.
 
 ## Open questions for the project owner
 
