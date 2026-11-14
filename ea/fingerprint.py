@@ -281,6 +281,9 @@ def draw_chart(result, path):
 
 def main(data_dir=OUT_DIR, report_dir=REPORT_DIR):
     by_mode, refusals = load_texts(data_dir)
+    if not by_mode:
+        raise SystemExit(f"No generated replies in {data_dir}. Run `python -m ea fingerprint-generate` first "
+                         "(hours on CPU; see docs/redteam/fingerprint/RESULTS.md).")
     counts = {}
     for mode, rows in by_mode.items():
         for r in rows:
