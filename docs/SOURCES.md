@@ -49,22 +49,27 @@ permission in writing; it means no clause forbids it.
 | **Bluesky dumps on Hugging Face** | **No need.** The live stream gives the same data with deletions honored. | One card says "Dataset usage is subject to Bluesky's Terms of Service" while tagged Apache-2.0. | None found. |
 | **Platform threat reports** (Meta, Google, OpenAI, Anthropic) | **Read as narrative, not data.** | The index pages did not expose account-level data or terms when read. Not verified further. | Named campaigns and tactics, useful for the red-team list, not for training. |
 
-## First real sample from Bluesky
+## First real samples from Bluesky
 
-One 15-minute listen on 2026-11-14 from 10:30 UTC (5:30 in the morning US Eastern, so the
-US was mostly asleep), then a fetch of every thread the immigration topic touched.
-No account or key was used. One short window at a quiet hour: treat the daily rates as
-a floor, not an estimate.
+Two 15-minute listens on 2026-11-14, each followed by a fetch of every thread the
+immigration topic touched. No account or key was used. Both fell between 5:30 and 6:30
+in the morning US Eastern, when the US was mostly asleep, so treat the topic rates as a
+floor.
 
-| Topic | Posts in 15 minutes | Share of all posts | Posts a day at this rate |
-| --- | --- | --- | --- |
-| All of Bluesky | 251,661 | 100% | about 24 million |
-| Immigration enforcement | 33 | 0.013% | about 3,200 |
-| Russia-Ukraine | 343 | 0.136% | about 33,000 |
+| | First listen, 10:30 UTC | Second listen, about 11:20 UTC |
+| --- | --- | --- |
+| All posts in 15 minutes | 251,661 (**suspect**, see below) | 28,927 |
+| Immigration enforcement posts | 33 | 45 |
+| Russia-Ukraine posts | 343 | 237 |
+| Immigration posts a day at this rate | about 3,200 | about 4,300 |
+| Russia-Ukraine posts a day at this rate | about 33,000 | about 23,000 |
+| Stored thread starts and replies | 32 and 143 | 45 and 1,815 |
+| Accounts stored | 110 | 1,566 |
 
-- Stored: 32 thread starts and 143 replies from 110 accounts. Only 3 accounts had the 5 replies needed for a feature row, so nothing can be modeled from this yet.
+- **The topic counts agree between the two listens. The count of all posts does not.** The first listen counted about 8 times more posts overall than the second, and a direct check of the stream agreed with the second (about 1,900 new posts a minute, or about 2.8 million a day). The cause is not found: a real burst of posts at that time, or a counting fault. Until it is, quote topic counts, not shares of all posts.
+- The second listen counted "ICE" in capitals and stored far more replies, because its on-topic threads were larger.
 - The later stages ran unchanged on the Bluesky files.
-- The immigration keywords for this run left out bare "ICE" to avoid "ice cream". The config now counts "ICE" when written in capitals, which should raise the count.
+- Asking the stream for reuse declarations as well as posts works: the stream accepted the request and sent no declarations, as expected while the proposal is a draft.
 - Keyword search of past posts works without an account on `api.bsky.app` (answered 200) and is refused on `public.api.bsky.app` (403). The docs describe both hosts as taking no authentication. Search is the likely route to past weeks of threads; not built.
 
 ## Why Bluesky, and what it cannot do
@@ -111,14 +116,39 @@ the features, with the account hashed. A label an account puts on itself is mark
 such. A labeler other than Bluesky's own service is stored hashed, since one person may run it. Labels are possible ground truth only; they are never a feature, or the model
 would learn to copy Bluesky's moderators.
 
-How many accounts carry these labels, and how often Bluesky withdraws one, is being
-measured.
+### Measured on 2026-11-14
+
+**Bluesky's own labels are too sparse to be ground truth for bots.**
+
+- In the second sample, 3 of 1,566 accounts (0.19%) carried any of the five labels above, all three `spam`. 8 accounts (0.51%) carried any label from Bluesky's moderators.
+- Over 3.7 days (2026-11-10 to 2026-11-14), Bluesky's moderation service put `spam` on 190 accounts, about 52 a day, and withdrew 46 of them (24%). It issued no `inauthentic`, `engagement-farming` or `scam` labels on accounts at all.
+- **Account takedowns are the larger signal:** 13,484 in the same 3.7 days, about 3,600 a day, with 690 (5.1%) withdrawn. A takedown does not say why, so it is evidence of a rule broken, not of automation.
+- Bluesky has switched off bulk label queries ("Support for wildcard label queries is temporarily disabled"). The label stream still replays without an account.
+
+**Independent labeler services publish much closer labels.** 322 labeler services were found through the public account search. Those most relevant here:
+
+| Service | Labels that matter here |
+| --- | --- |
+| labeler.hailey.at | `ai-agent`, `coordinated-abuse` (member of a coordinated abuse network), `new-acct-replies` (10 or more replies in an account's first hour), `reply-link-spam`, `suss-handle-change` |
+| pef-moderation.org | `network` (part of a network of coordinating peers), `fake`, `repetitive`, `engagementfarmer` |
+| bottags.bsky.social | `undisclosed-bot`, `bot-reply` |
+| ab4n-labeler.bsky.social | `matryoshka` (pro-Kremlin disinformation burner accounts) |
+| moderation.blueat.net | `bot-net`, `sus-new` |
+| stechlab-labels.bsky.social | `no-gap-more-than-one-hours` and similar: posted without a long break in the last 24 hours |
+
+How to read these:
+
+- They are **weak labels**: each is one team's or one person's judgment, with unknown error rates. None has been checked here.
+- Some are **computed from the same behavior this project measures**. The stechlab labels are a timing rule. Training on such a label and then scoring with timing features would only teach the model that rule.
+- The `matryoshka` label is the one found so far that speaks to the Russia-Ukraine topic.
+- Using them fits the project rules as long as the account stays hashed and no labeled account is ever named.
 
 ## Next
 
-1. **Ground truth on Bluesky.** Test whether Bluesky's moderation labels (spam, impersonation) and account takedown events on the stream can serve as labels, the way removal flags do on Reddit. Bluesky's moderation service answers label queries without an account (checked: the query returned a list of labels). What the labels cover, and how many accounts carry one, is not yet measured.
-2. **Replace TwiBot-22** as the training set, or find a route to it. Options: the X information operations archive (needs an email address), or planted synthetic behavior only.
-3. **Backfill** past weeks of on-topic Bluesky threads from public account histories.
+1. **Ground truth on Bluesky, in two parts.** (a) Listen to the label stream of Bluesky's moderators and of three or four independent labelers, hash each labeled account, and join to the collected accounts: this gives "later taken down" and "labeled by others" flags without storing any identifier. (b) Check each labeler by hand on a small sample before trusting it, and keep labels built from timing rules out of training.
+2. **Explain the first listen's count of all posts.** Each run now prints the quietest, middle and busiest minute, so a burst shows up as a burst. Compare a few runs.
+3. **Replace TwiBot-22** as the training set, or find a route to it. Options: the X information operations archive (needs an email address), or planted synthetic behavior only.
+4. **Backfill** past weeks of on-topic Bluesky threads from public account histories.
 
 ## Open questions for the project owner
 
