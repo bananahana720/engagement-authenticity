@@ -125,6 +125,7 @@ def listen(cfg, seconds, events=None):
     deleted, opted_out, opted_in = set(), set(), set()
     reuse_kinds = cfg["bluesky"].get("reuse_declarations", [])
     started = time.time()
+    per_minute = Counter()      # all new posts in each minute of listening, to show bursts
 
     live = events or stream_events(cfg["bluesky"]["stream_urls"], seconds, [POST] + reuse_kinds)
     for operation, kind, account, address, record in live:
@@ -142,6 +143,7 @@ def listen(cfg, seconds, events=None):
             continue
         is_reply = "reply" in record
         counts["all", is_reply] += 1
+        per_minute[int(time.time() - started) // 60] += 1
         text = record.get("text", "")
         for name, pattern in patterns.items():
             if pattern.search(text) or (name in exact and exact[name].search(text)):
@@ -152,7 +154,11 @@ def listen(cfg, seconds, events=None):
 
     minutes = max((time.time() - started) / 60, 1e-9) if events is None else seconds / 60
     busiest_first = [a for a, _ in threads.most_common()]
-    return volume_table(counts, list(patterns), minutes), busiest_first, deleted, opted_out, opted_in
+    volumes = volume_table(counts, list(patterns), minutes)
+    if events is None and per_minute:
+        tally = sorted(per_minute.values())
+        print(f"All posts per minute: quietest {tally[0]}, middle {tally[len(tally) // 2]}, busiest {tally[-1]}.")
+    return volumes, busiest_first, deleted, opted_out, opted_in
 
 
 def volume_table(counts, topics, minutes):
