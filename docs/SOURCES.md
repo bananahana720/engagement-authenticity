@@ -66,11 +66,41 @@ floor.
 | Stored thread starts and replies | 32 and 143 | 45 and 1,815 |
 | Accounts stored | 110 | 1,566 |
 
-- **The topic counts agree between the two listens. The count of all posts does not.** The first listen counted about 8 times more posts overall than the second, and a direct check of the stream agreed with the second (about 1,900 new posts a minute, or about 2.8 million a day). The cause is not found: a real burst of posts at that time, or a counting fault. Until it is, quote topic counts, not shares of all posts.
+- **The topic counts agree between the two listens. The count of all posts does not.** The first listen counted about 8 times more posts overall than the second, and a direct check of the stream agreed with the second (about 1,900 new posts a minute, or about 2.8 million a day). The cause is not found: a real burst of posts at that time, or a counting fault. Quote topic counts, not shares of all posts. The 6-hour listen below settles it.
 - The second listen counted "ICE" in capitals and stored far more replies, because its on-topic threads were larger.
 - The later stages ran unchanged on the Bluesky files.
 - Asking the stream for reuse declarations as well as posts works: the stream accepted the request and sent no declarations, as expected while the proposal is a draft.
 - Keyword search of past posts works without an account on `api.bsky.app` (answered 200) and is refused on `public.api.bsky.app` (403). The docs describe both hosts as taking no authentication. Search is the likely route to past weeks of threads; not built.
+
+## The 6-hour listen: is there enough immigration talk on Bluesky?
+
+**Yes.** One listen from 10:47 to 16:47 UTC on 2026-11-14 (5:47 to 11:47 in the morning
+US Eastern), on Andrew's computer, no account or key.
+
+| Topic | Posts in 6 hours | Posts a day at this rate |
+| --- | --- | --- |
+| All of Bluesky | 1,069,559 | about 4.3 million |
+| Immigration enforcement | 3,405 | about 13,600 |
+| Russia-Ukraine | 7,362 | about 29,400 |
+
+What was stored, together with the first 15-minute sample:
+
+| Measure | Value |
+| --- | --- |
+| Threads the topic touched | 2,590, of which the busiest 578 were fetched (the run's limit was 600) |
+| Thread starts and replies stored | 610 and 46,745 |
+| Accounts that replied | 25,614 |
+| Accounts with 5 or more replies (enough for a feature row) | 1,490 |
+| Accounts with 20 or more replies | 40 |
+| Replies per thread, middle and top tenth | 9 and 251 |
+| Replies within 30 seconds of the post they answer | 1.1% |
+| Replies from accounts that say they are bots | 0.14% |
+
+- **Volume is enough to work with.** Six hours gave 784 accounts a feature row in the window the features stage looks at. A week of listening would give several times that.
+- **No coordinated cluster was found**, and no account had near-duplicate replies. With the first-guess thresholds and six hours of data that is weak evidence either way: the thresholds have never been checked against labeled data.
+- **The sample leans to big threads.** Fetching the busiest threads first means quiet threads are under-represented. Raise the limit or sample threads at random before quoting rates.
+- **The stream dropped four times in six hours** and the run reconnected each time. Short gaps mean the daily rates are slightly low.
+- **The first sample's count of all posts was a one-off.** This run and three direct checks give 1,900 to 3,000 new posts a minute depending on the hour, with no duplicates. The first sample's 16,800 a minute came from the stream at that moment, most likely a replay of a backlog, and not from the code. Its topic counts were in line with the rest.
 
 ## Why Bluesky, and what it cannot do
 
@@ -146,7 +176,7 @@ How to read these:
 ## Next
 
 1. **Ground truth on Bluesky, in two parts.** (a) Listen to the label stream of Bluesky's moderators and of three or four independent labelers, hash each labeled account, and join to the collected accounts: this gives "later taken down" and "labeled by others" flags without storing any identifier. (b) Check each labeler by hand on a small sample before trusting it, and keep labels built from timing rules out of training.
-2. **Explain the first listen's count of all posts.** Each run now prints the quietest, middle and busiest minute, so a burst shows up as a burst. Compare a few runs.
+2. **Listen for a week**, with threads sampled at random as well as busiest first, then set the cluster thresholds against labeled accounts.
 3. **Replace TwiBot-22** as the training set, or find a route to it. Options: the X information operations archive (needs an email address), or planted synthetic behavior only.
 4. **Backfill** past weeks of on-topic Bluesky threads from public account histories.
 
