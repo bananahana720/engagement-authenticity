@@ -194,3 +194,134 @@ def test_end_to_end_on_synthetic_data(cfg):
     assert predictions.loc[predictions["target"] == 0, "flagged"].mean() == 0
     # The report is aggregate: no account hash appears in it.
     assert not any(h in report for h in predictions["author_hash"])
+
+
+# ---------- network ----------
+
+from ea import ira2018, network
+
+
+def tiny_network():
+    """Seeds s1, s2 answer each other; s3 only answers an ordinary poster; o1, o2 are ordinary."""
+    posts = pd.DataFrame([
+        {"id": "p1", "author_hash": "s1", "subreddit": "a", "created_utc": 100, "link_key": "k1"},
+        {"id": "p2", "author_hash": "o1", "subreddit": "a", "created_utc": 100, "link_key": "k2"},
+        {"id": "p3", "author_hash": "s2", "subreddit": "b", "created_utc": 400, "link_key": "k1"},
+    ])
+    rows = [("c1", "s2", "p1", "t3_p1", 160), ("c2", "s1", "p1", "t1_c1", 220), ("c3", "s1", "p1", "t3_p1", 230),
+            ("c4", "s3", "p2", "t3_p2", 300), ("c5", "o2", "p2", "t1_c4", 400), ("c6", "o2", "p2", "t1_gone", 500)]
+    comments = pd.DataFrame([{"id": i, "author_hash": a, "link_id": p, "parent_id": parent, "created_utc": t,
+                              "subreddit": "a", "disclosed_bot": False} for i, a, p, parent, t in rows])
+    return posts, comments
+
+
+def test_edges_point_at_the_author_answered():
+    edges = network.build_edges(*tiny_network()).set_index(pd.Index(["c1", "c2", "c3", "c4", "c5", "c6"]))
+    assert edges.loc["c1", ["source", "target", "kind"]].tolist() == ["s2", "s1", "post_reply"]
+    assert edges.loc["c2", ["source", "target", "kind"]].tolist() == ["s1", "s2", "comment_reply"]
+    assert edges.loc["c2", "latency"] == 60
+    assert edges.loc["c6", "target"] == network.UNKNOWN          # the comment it answers was never collected
+
+
+def test_mixing_table_separates_self_seed_other_unknown():
+    edges = network.build_edges(*tiny_network())
+    table = network.mixing_table(edges, {"s1", "s2", "s3"})
+    assert table.loc["post_reply"].to_dict() == {"self": 1, "seed": 1, "other": 1, "unknown": 0}
+    assert table.loc["comment_reply", "seed"] == 1
+
+
+def test_seed_graph_and_relay_chain():
+    posts, comments = tiny_network()
+    shape = network.graph_shape(network.seed_graph(network.build_edges(posts, comments), {"s1", "s2", "s3"}))
+    assert shape["accounts"] == 2 and shape["pairs"] == 2 and shape["reciprocity"] == 1.0
+    chains = network.relay_chains(posts, {"s1", "s2", "s3"})
+    assert len(chains) == 1 and chains.iloc[0]["accounts"] == 2 and chains.iloc[0]["median_gap_minutes"] == 5
+
+
+def test_entropy_share():
+    assert network.entropy_share([5, 5]) == pytest.approx(1.0)
+    assert network.entropy_share([10]) == 0.0
+    assert network.entropy_share([99, 1]) < 0.2
+
+
+@pytest.fixture(scope="module")
+def planted(tmp_path_factory):
+    """The synthetic network, built once."""
+    cfg = load_config(Path(__file__).parent.parent / "config" / "immigration.toml")
+    root = tmp_path_factory.mktemp("net")
+    cfg["data_dir"], cfg["reports_dir"] = root / "data", root / "reports"
+    synthetic.make_synthetic_network(cfg)
+    posts, comments = collect.load_collected(cfg)
+    return cfg, posts, comments, network.build_edges(posts, comments), network.load_seeds(cfg)
+
+
+def group(seeds, prefix):
+    return {s for s in seeds if s.startswith(prefix)}
+
+
+def test_planted_ring_shows_up_against_chance(planted):
+    _, _, _, edges, seeds = planted
+    ring = network.mixing_against_shuffle(edges, group(seeds, "ring"), shuffles=50)
+    assert ring["testable"] and ring["times_chance"] > 5 and ring["p_value"] < 0.05
+    covert = network.mixing_against_shuffle(edges, group(seeds, "covert"), shuffles=50)
+    assert covert["observed_share"] == 0                       # covert members never answer each other
+
+
+def test_covert_accounts_are_narrow_and_ordinary_accounts_are_not(planted):
+    _, posts, _, edges, seeds = planted
+    profiles = network.account_profiles(edges, posts)
+    covert = network.summarize_profiles(profiles[profiles.index.isin(list(group(seeds, "covert")))])
+    ordinary = network.summarize_profiles(profiles[~profiles.index.isin(list(seeds))])
+    assert covert["median_top_target_share"] > 0.25 > ordinary["median_top_target_share"]
+    assert covert["median_target_spread"] < ordinary["median_target_spread"]
+
+
+def test_relay_crew_is_found(planted):
+    _, posts, _, _, seeds = planted
+    summary = network.summarize_relays(network.relay_chains(posts, seeds), posts, seeds)
+    assert summary["chains_all_seed"] == 40 and summary["median_gap_minutes"] < 15
+
+
+def test_the_net_catches_the_ring_but_not_the_covert_accounts(planted):
+    _, _, _, edges, seeds = planted
+    ring = network.proximity_test(edges, group(seeds, "ring"), trials=20)
+    loose, tight = ring["touches_2_or_more"], ring["touches_2_or_more_and_15pct_of_replies"]
+    assert loose["precision"] < 0.5 < tight["precision"]       # touching seeds is not enough; aiming at them is
+    assert tight["recall"] > 0.8
+    covert = network.proximity_test(edges, group(seeds, "covert"), trials=20)
+    assert all((net["precision"] or 0) == 0 for net in covert.values())
+
+
+def test_network_report_holds_no_account_ids(planted):
+    cfg, _, _, _, seeds = planted
+    out, result = network.network_report(cfg, shuffles=20, trials=10)
+    text = out.read_text() + paths(cfg)["network_picture"].read_text()
+    assert not any(s in text for s in seeds) and "ordinary0" not in text
+    assert result["counts"]["seeds"] == 50
+
+
+def test_ira2018_convert_hashes_everyone_and_drops_text(cfg):
+    raw = cfg["data_dir"] / "raw"
+    raw.mkdir(parents=True)
+    (raw / "seed.csv").write_text("TrollOne,5\nTrollTwo,0\n")
+    pd.DataFrame([
+        {"id": "s1", "author.name": "TrollOne", "created_utc": 100.0, "is_self": False,
+         "url": "http://example.com/a", "subreddit_name_prefixed": "r/news"},
+        {"id": "s2", "author.name": "reddit", "created_utc": 900.0, "is_self": True,
+         "url": "", "subreddit_name_prefixed": "u/reddit"},
+    ]).to_csv(raw / "submissions.csv", index=False)
+    pd.DataFrame([
+        {"id": "c1", "author.name": "TrollTwo", "created_utc": 160.0, "link_id": "t3_s1", "parent_id": "t3_s1",
+         "link_author": "TrollOne", "body": "secret words", "subreddit.display_name_prefixed": "r/news"},
+        {"id": "c2", "author.name": "TrollTwo", "created_utc": 170.0, "link_id": "t3_x9", "parent_id": "t3_x9",
+         "link_author": "OrdinaryPerson", "body": "more words", "subreddit.display_name_prefixed": "r/funny"},
+    ]).to_csv(raw / "comments.csv", index=False)
+
+    assert ira2018.convert(cfg) == (2, 2, 2)                    # the ban notice is not a post
+    folder = paths(cfg)["collected"] / "ira2018"
+    written = (folder / "posts.jsonl").read_text() + (folder / "comments.jsonl").read_text()
+    for leak in ("TrollOne", "OrdinaryPerson", "secret words", "example.com"):
+        assert leak not in written
+    posts, comments = collect.load_collected(cfg)
+    table = network.mixing_table(network.build_edges(posts, comments), network.load_seeds(cfg))
+    assert table.loc["post_reply", "seed"] == 1 and table.loc["post_reply", "other"] == 1

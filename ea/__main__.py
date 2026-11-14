@@ -8,19 +8,25 @@
   train      fit the model on labeled accounts
   evaluate   write the aggregate report
   demo       run features -> sample -> train -> evaluate on made-up data
+  seeds      download and convert the 2018 disclosed accounts (use --config config/ira2018.toml)
+  network    who-replies-to-whom measures, starting from the seed accounts
+  network-demo  the network measures on made-up data with planted patterns
 """
 
 import argparse
 from pathlib import Path
 
-from ea import collect, evaluate, features, label, model, synthetic
+import json
+
+from ea import collect, evaluate, features, ira2018, label, model, network, synthetic
 from ea.config import load_config, paths
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("stage", choices=["volumes", "collect", "features", "sample",
-                                          "agreement", "train", "evaluate", "demo"])
+                                          "agreement", "train", "evaluate", "demo",
+                                          "seeds", "network", "network-demo"])
     parser.add_argument("--config", default="config/immigration.toml")
     parser.add_argument("--only", nargs="*", help="collect: just these subreddits")
     parser.add_argument("--posts-dump", help="collect: read posts from this dump file instead of the API")
@@ -49,6 +55,20 @@ def main():
         print("Wrote", evaluate.evaluate(cfg))
     elif args.stage == "demo":
         run_demo(cfg)
+    elif args.stage == "seeds":
+        ira2018.download(cfg)
+        print("Wrote %d posts, %d comments, %d seed accounts" % ira2018.convert(cfg))
+    elif args.stage == "network":
+        out, result = network.network_report(cfg)
+        print(json.dumps(result, indent=2))
+        print("Wrote", out)
+    elif args.stage == "network-demo":
+        cfg = dict(cfg, name="network demo (synthetic data)",
+                   data_dir=Path("data/network_demo"), reports_dir=Path("reports/network_demo"))
+        print("Made %d posts, %d comments, %d seed accounts" % synthetic.make_synthetic_network(cfg))
+        out, result = network.network_report(cfg)
+        print(json.dumps(result, indent=2))
+        print("Wrote", out)
 
 
 def run_demo(cfg):

@@ -32,4 +32,7 @@ def paths(cfg):
         "volumes": reports / "volumes.csv",
         "phrase_spread": reports / "phrase_spread.csv",
         "evaluation": reports / "evaluation.md",
+        "seeds": data / "labels" / "seeds.csv",      # accounts with a verified label, for the network stage
+        "network": reports / "network.json",
+        "network_picture": reports / "network_picture.json",
     }
