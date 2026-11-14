@@ -23,6 +23,36 @@ sources and so unconfirmed:
 - Does training a model on Reddit content need Reddit's written approval? (Believed yes for AI training. This project trains a small classifier on derived numbers such as reply times, not on text, but check the wording.)
 - Do the terms reach data obtained from a third-party archive rather than the API?
 
+## Decided: no model training on Reddit data without permission
+
+Decided 2026-11-14. Until Reddit grants permission:
+
+- No model is trained on Reddit data. Models are trained only on non-Reddit labeled data (synthetic data, TwiBot-22).
+- Reddit data is used only for scoring with such a model, and for descriptive statistics (counts, timing, phrase spread, clusters).
+
+```
+ non-Reddit labeled data ──▶ train ──▶ model ──▶ score ◀── Reddit data
+                                                   │
+ Reddit data ──▶ train   ✗ refused                 ▼
+                                               evaluate
+```
+
+The code enforces this:
+
+- `config/immigration.toml` says `source = "reddit"` and `reddit_training_permitted = false`.
+- `python -m ea train` refuses any config whose source is Reddit and fits nothing.
+- `python -m ea score --model <model.joblib>` scores Reddit accounts with a model trained elsewhere. It also refuses a model that was itself trained on Reddit data.
+- Each saved model records what it was trained on, and each report prints it.
+
+Flip `reddit_training_permitted` to `true` only once Reddit's written permission exists.
+
+Limits to know:
+
+- The only non-Reddit training data today is synthetic. A model trained on it checks that the code runs. Its scores on Reddit accounts are not evidence about those accounts.
+- TwiBot-22 comes from X and lacks some Reddit features (threads, reply timing as collected here). A model that transfers needs features both sources share. Not built yet.
+- The cluster detector uses fixed rules, not a trained model, so it runs on Reddit data. Setting its thresholds from Reddit labels would be a grey area: decide before doing it.
+- Labeling Reddit accounts and measuring error rates against those labels is evaluation, not training.
+
 ## How the code is built around this
 
 | Concern | What the code does |

@@ -2,6 +2,7 @@ pandas>=2.0
 numpy>=1.26
 scikit-learn>=1.4
 requests>=2.31
+matplotlib>=3.8
 pytest>=8.0
 # Only needed to read monthly .zst dump files:
 zstandard>=0.22

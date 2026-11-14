@@ -23,11 +23,16 @@ def paths(cfg):
     return {
         "collected": data / "collected",             # <subreddit>/posts.jsonl, comments.jsonl
         "features": data / "features.csv",
+        "clusters": data / "clusters.csv",
         "to_label": data / "labels" / "to_label.csv",
         "label_examples": data / "labels" / "to_label_examples.csv",
         "labels": data / "labels" / "labels.csv",
         "model": data / "model" / "model.joblib",
         "predictions": data / "model" / "test_predictions.csv",
+        "scores": data / "model" / "test_window_scores.csv",       # every account, labeled or not
+        "groups": data / "labels" / "groups.csv",                  # optional: control and red-team groups
+        "error_curve": reports / "error_tradeoff.png",
+        "reliability": reports / "reliability.png",
         "threshold": data / "model" / "threshold.json",
         "volumes": reports / "volumes.csv",
         "phrase_spread": reports / "phrase_spread.csv",

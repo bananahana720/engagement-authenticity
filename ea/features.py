@@ -5,6 +5,7 @@ Each block below tests one family of hypotheses from the plan:
   near-duplicates  H5 (coordinated accounts share phrasing)
   co-engagement    H6 (coordinated accounts turn up together, repeatedly)
   coded phrases    phrase pickup in sync with other accounts
+It also writes the cluster answer for each account (see ea/clusters.py).
 
 No feature looks at which side of the topic an account is on.
 """
@@ -21,15 +22,17 @@ from ea.config import paths
 
 
 def build_features(cfg):
+    from ea.clusters import find_clusters       # imported here: clusters.py itself uses this module
+
     posts, comments = load_collected(cfg)
-    comments = comments[~comments["disclosed_bot"]]     # label E: set aside by rule, not modeled
+    comments = comments[~comments["disclosed_bot"]]     # declared bots: set aside by rule, not modeled
     comments = add_reply_latency(comments, posts)
 
     windows = {
         "train": (cfg["start"], cfg["train_end"]),
         "test": (cfg["train_end"], cfg["end"]),
     }
-    tables = []
+    tables, cluster_tables = [], []
     for name, (start, end) in windows.items():
         in_window = comments[(comments["time"] >= pd.Timestamp(start, tz="UTC"))
                              & (comments["time"] < pd.Timestamp(end, tz="UTC"))]
@@ -37,11 +40,13 @@ def build_features(cfg):
             table = features_for_window(in_window, cfg)
             table.insert(1, "window", name)
             tables.append(table)
+            cluster_tables.append(find_clusters(in_window, cfg).assign(window=name))
     features = pd.concat(tables, ignore_index=True)
 
     out = paths(cfg)["features"]
     out.parent.mkdir(parents=True, exist_ok=True)
     features.to_csv(out, index=False)
+    pd.concat(cluster_tables, ignore_index=True).to_csv(paths(cfg)["clusters"], index=False)
     phrase_spread(comments, cfg).to_csv(ensure_parent(paths(cfg)["phrase_spread"]), index=False)
     return features
 
@@ -175,11 +180,8 @@ def near_duplicate_features(comments, minutes, min_jaccard):
 
 # ---------- co-engagement (H6) ----------
 
-def co_engagement_features(comments, minutes, max_group=50):
-    """How often the same accounts turn up in the same thread within minutes of each other.
-
-    One coincidence means nothing. The signal is a partner that keeps reappearing.
-    """
+def co_engagement_pairs(comments, minutes, max_group=50):
+    """For each pair of accounts, the threads where both commented within minutes of each other."""
     slot = comments["created_utc"] // (minutes * 60)
     shared_threads = defaultdict(set)       # (account, account) -> threads they co-appeared in
     for (thread, _), group in comments.groupby(["link_id", slot]):
@@ -187,10 +189,17 @@ def co_engagement_features(comments, minutes, max_group=50):
         if 2 <= len(accounts) <= max_group:  # a huge pile-on is a busy thread, not a ring
             for pair in combinations(accounts, 2):
                 shared_threads[pair].add(thread)
+    return shared_threads
 
+
+def co_engagement_features(comments, minutes):
+    """How often the same accounts turn up in the same thread within minutes of each other.
+
+    One coincidence means nothing. The signal is a partner that keeps reappearing.
+    """
     best_partner = defaultdict(int)
     repeat_partners = defaultdict(int)
-    for (a, b), threads in shared_threads.items():
+    for (a, b), threads in co_engagement_pairs(comments, minutes).items():
         for account in (a, b):
             best_partner[account] = max(best_partner[account], len(threads))
             repeat_partners[account] += len(threads) >= 3
