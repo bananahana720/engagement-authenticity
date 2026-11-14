@@ -60,6 +60,13 @@ co_engage_minutes = 5
 phrase_burst_minutes = 10
 phrase_burst_accounts = 3
 
+[clusters]
+# Two accounts are linked by either rule; linked accounts form a cluster.
+# First guesses, not yet checked against labeled data.
+min_shared_threads = 3              # same thread within co_engage_minutes, this many threads
+min_duplicate_comments = 2          # near-duplicate comments between the two accounts
+min_accounts = 3                    # smallest group that counts as a cluster
+
 [model]
 min_precision = 0.90                # operating point: precision first, then report the recall it costs
 test_account_share = 0.3

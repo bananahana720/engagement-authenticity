@@ -23,6 +23,7 @@ def paths(cfg):
     return {
         "collected": data / "collected",             # <subreddit>/posts.jsonl, comments.jsonl
         "features": data / "features.csv",
+        "clusters": data / "clusters.csv",
         "to_label": data / "labels" / "to_label.csv",
         "label_examples": data / "labels" / "to_label_examples.csv",
         "labels": data / "labels" / "labels.csv",

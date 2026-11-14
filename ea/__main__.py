@@ -42,7 +42,7 @@ def main():
     elif args.stage == "sample":
         print(f"Wrote {len(label.draw_sample(cfg, args.accounts))} accounts to {paths(cfg)['to_label']}")
     elif args.stage == "agreement":
-        print(label.agreement(*args.sheets).to_string(index=False))
+        print(label.agreement(*args.sheets).round(2).to_string(index=False))
     elif args.stage == "train":
         print(f"Scored {len(model.train(cfg))} held-out test accounts")
     elif args.stage == "evaluate":

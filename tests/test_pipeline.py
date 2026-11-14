@@ -6,7 +6,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from ea import collect, evaluate, features, label, model, synthetic
+from ea import clusters, collect, evaluate, features, label, model, synthetic
 from ea.config import load_config, paths
 from ea.pseudonymize import is_disclosed_bot, pseudonym
 
@@ -166,15 +166,54 @@ def test_phrases_are_merged_so_no_feature_knows_the_side(cfg):
 
 # ---------- label ----------
 
-def test_label_without_evidence_becomes_uncertain():
-    sheet = pd.DataFrame({"author_hash": ["a", "b", "c"], "label": ["A", "a", "D"],
-                          "evidence": ["replies in 5 seconds, all day", "", ""]})
-    assert list(label.clean_labels(sheet)["label"]) == ["A", "U", "D"]
+def test_answer_without_evidence_becomes_uncertain():
+    sheet = pd.DataFrame({"author_hash": ["a", "b", "c", "d"],
+                          "who_types": ["program", "Program", "person", "person"],
+                          "changed_hands": ["no_sign", "no_sign", "likely", "likely"],
+                          "evidence": ["replies in 5 seconds, all day", "", "", "silent 3 years, new language"]})
+    clean = label.clean_labels(sheet)
+    assert list(clean["who_types"]) == ["program", "uncertain", "person", "person"]
+    assert list(clean["changed_hands"]) == ["no_sign", "no_sign", "uncertain", "likely"]
+
+
+def test_unknown_answers_are_rejected():
+    sheet = pd.DataFrame({"author_hash": ["a"], "who_types": ["shill"], "changed_hands": ["no_sign"], "evidence": ["x"]})
+    with pytest.raises(ValueError):
+        label.clean_labels(sheet)
+
+
+def test_old_six_labels_can_be_derived():
+    sheet = pd.DataFrame({
+        "author_hash": list("abcdefg"),
+        "who_types": ["declared", "person", "program", "person_plus_automation", "person", "person", "uncertain"],
+        "changed_hands": ["no_sign", "likely", "no_sign", "no_sign", "no_sign", "no_sign", "no_sign"],
+    })
+    cluster = pd.Series({"e": "in_cluster", "f": "none_found"})
+    assert list(label.old_six_labels(sheet, cluster)) == ["E", "B", "A", "A", "C", "D", "U"]
 
 
 def test_cohen_kappa():
     assert label.cohen_kappa(list("AADD"), list("AADD")) == 1.0
     assert label.cohen_kappa(list("AADD"), list("ADAD")) == 0.0
+
+
+# ---------- clusters ----------
+
+def test_clusters_need_repeated_links_and_enough_accounts(cfg):
+    cfg["features"]["min_comments"] = 3
+    rows = []
+    for n in range(3):                                   # x, y, z together in three threads
+        for k, who in enumerate("xyz"):
+            rows.append(comment(f"{who}{n}", who, n * 10000 + k * 30, thread=f"p{n}"))
+    for n in range(3):                                   # v and w together three times: only a pair
+        rows += [comment(f"v{n}", "v", 500000 + n * 10000, thread=f"q{n}"),
+                 comment(f"w{n}", "w", 500000 + n * 10000 + 30, thread=f"q{n}")]
+    rows += [comment(f"s{n}", "solo", 900000 + n * 10000, thread=f"r{n}") for n in range(3)]
+    rows.append(comment("once", "quiet", 990000, thread="r9"))
+    found = clusters.find_clusters(pd.DataFrame(rows), cfg).set_index("author_hash")["cluster"]
+    assert set(found[found == "in_cluster"].index) == {"x", "y", "z"}
+    assert found["v"] == "none_found" and found["solo"] == "none_found"      # a pair is not a cluster
+    assert found["quiet"] == "not_tested"                                    # too little activity
 
 
 # ---------- the whole pipeline ----------
@@ -187,10 +226,17 @@ def test_end_to_end_on_synthetic_data(cfg):
     report = evaluate.evaluate(cfg).read_text()
 
     assert {"train", "test"} == set(table["window"])
-    assert sheet["label"].eq("").all()                                  # the sheet arrives unlabeled
+    assert sheet["who_types"].eq("").all() and sheet["changed_hands"].eq("").all()   # arrives unlabeled
     assert "stratum" not in pd.read_csv(paths(cfg)["to_label"]).columns
-    # Planted bots and rings are found, and no planted ordinary account is flagged.
+    # Planted programs are found, and no planted person is flagged.
     assert predictions.loc[predictions["target"] == 1, "flagged"].mean() > 0.6
     assert predictions.loc[predictions["target"] == 0, "flagged"].mean() == 0
+    # Planted rings are found by the cluster detector, and ordinary accounts are not swept in.
+    found = pd.read_csv(paths(cfg)["clusters"]).set_index("author_hash")
+    found = found[found["window"] == "train"]["cluster"]
+    ring = found[found.index.str.startswith("ring")]
+    ordinary = found[found.index.str.startswith("ordinary")]
+    assert (ring == "in_cluster").mean() > 0.9
+    assert (ordinary == "in_cluster").mean() < 0.02
     # The report is aggregate: no account hash appears in it.
     assert not any(h in report for h in predictions["author_hash"])

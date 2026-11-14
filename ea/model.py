@@ -1,7 +1,13 @@
-"""Stage 4, model: learn "inauthentic or not" from the labeled accounts.
+"""Stage 4, model: learn "is software doing the typing?" from the labeled accounts.
 
-Target: 1 for labels A, B, C (automated, hijacked, incentive-driven), 0 for D.
-E (disclosed bots) and U (uncertain) are left out of training.
+Target, from the who_types question:
+  1  program, or person plus automation
+  0  person
+Declared accounts and uncertain answers are left out of training.
+
+The other two questions are not modeled here. "Changed hands" needs account
+history this data does not have yet. "In a cluster" is found directly by
+ea/clusters.py, so the cluster-size features below are for context only.
 
 Two splits at once, so the test is honest:
   by time     train on the earlier window, test on the later one
@@ -21,8 +27,8 @@ from sklearn.model_selection import cross_val_predict
 from ea.config import paths
 from ea.label import clean_labels
 
-INAUTHENTIC = {"A", "B", "C"}
-NOT_FEATURES = ["author_hash", "window", "label", "target", "in_test"]
+AUTOMATED = {"program", "person_plus_automation"}
+NOT_FEATURES = ["author_hash", "window", "who_types", "target", "in_test"]
 
 
 def in_test_set(author_hash, share):
@@ -34,9 +40,9 @@ def in_test_set(author_hash, share):
 def labeled_features(cfg):
     features = pd.read_csv(paths(cfg)["features"], dtype={"author_hash": str})
     labels = clean_labels(pd.read_csv(paths(cfg)["labels"], dtype={"author_hash": str}))
-    table = features.merge(labels[["author_hash", "label"]], on="author_hash")
-    table = table[table["label"].isin(INAUTHENTIC | {"D"})]
-    table["target"] = table["label"].isin(INAUTHENTIC).astype(int)
+    table = features.merge(labels[["author_hash", "who_types"]], on="author_hash")
+    table = table[table["who_types"].isin(AUTOMATED | {"person"})]
+    table["target"] = table["who_types"].isin(AUTOMATED).astype(int)
     share = cfg["model"]["test_account_share"]
     table["in_test"] = table["author_hash"].map(lambda h: in_test_set(h, share))
     return table
@@ -67,7 +73,7 @@ def train(cfg):
     threshold = pick_threshold(y, out_of_fold, cfg["model"]["min_precision"])
 
     model = new_model().fit(x, y)
-    predictions = test_rows[["author_hash", "label", "target"]].copy()
+    predictions = test_rows[["author_hash", "who_types", "target"]].copy()
     predictions["score"] = model.predict_proba(test_rows[columns])[:, 1]
     predictions["flagged"] = predictions["score"] >= threshold
 

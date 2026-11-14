@@ -1,9 +1,9 @@
 """Made-up data with known answers, for tests and for trying the pipeline end to end.
 
 Nothing here is real. Three kinds of invented account:
-  D ordinary     comments in waking hours, replies minutes to hours later, own wording
-  A automated    comments around the clock, replies within seconds, templated text
-  C coordinated  human rhythm, but a ring turns up in the same threads within
+  ordinary       comments in waking hours, replies minutes to hours later, own wording
+  automated      comments around the clock, replies within seconds, templated text
+  ring members   human rhythm, but a ring turns up in the same threads within
                  minutes, pushing the same talking point with small rewording
 Results on this data say the code runs. They say nothing about real Reddit.
 """
@@ -55,19 +55,19 @@ def make_synthetic(cfg, n_ordinary=300, n_automated=30, n_rings=3, ring_size=10,
             add(author, posts[i], waking_time(posts[i]["created_utc"], wake_hour), own_words())
 
     for n in range(n_ordinary):
-        labels[f"ordinary{n:04d}"] = "D"
+        labels[f"ordinary{n:04d}"] = "person"
         ordinary_comments(f"ordinary{n:04d}", int(rng.integers(12, 60)))
 
     templates = [" ".join(rng.choice(WORDS, size=18)) for _ in range(5)]
     for n in range(n_automated):
-        labels[f"automated{n:04d}"] = "A"
+        labels[f"automated{n:04d}"] = "program"
         for i in rng.choice(n_threads, size=int(rng.integers(60, 150)), replace=False):
             body = str(rng.choice(templates)) + " " + str(rng.choice(WORDS))
             add(f"automated{n:04d}", posts[i], posts[i]["created_utc"] + rng.integers(5, 25), body)
 
     for ring in range(n_rings):
         members = [f"ring{ring}member{m:02d}" for m in range(ring_size)]
-        labels.update({m: "C" for m in members})
+        labels.update({m: "person" for m in members})     # people; the ring is for the cluster detector
         wake_hour = int(rng.integers(0, 24))
         for m in members:
             ordinary_comments(m, int(rng.integers(8, 20)))
@@ -87,7 +87,7 @@ def make_synthetic(cfg, n_ordinary=300, n_automated=30, n_rings=3, ring_size=10,
 
     label_file = paths(cfg)["labels"]
     label_file.parent.mkdir(parents=True, exist_ok=True)
-    pd.DataFrame({"author_hash": list(labels), "label": list(labels.values()),
-                  "confidence": 3, "evidence": "synthetic: generated with this label"}
+    pd.DataFrame({"author_hash": list(labels), "who_types": list(labels.values()),
+                  "changed_hands": "no_sign", "confidence": 3, "evidence": "synthetic: generated with this label"}
                  ).to_csv(label_file, index=False)
     return len(posts), len(comments), len(labels)
