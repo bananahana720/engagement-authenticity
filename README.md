@@ -115,5 +115,5 @@ any feature is computed, so no feature can tell which list a phrase came from.
 - Karma-farming history (H8) and account age (H3). The comment records carry no account creation date.
 - Holding out whole coordinated clusters in the test set.
 - Prevalence estimates weighted back to the real population, with confidence intervals. The sampling weights are already recorded.
-- The claims layer: cluster recurring talking points and match them to independent fact-check ratings (rated false / contested / unrated). Separate from the detector by design.
+- The claims layer: cluster recurring talking points and match them to independent fact-check ratings (rated false / contested / unrated). Separate from the detector by design. A second evidence source, official records and event data, is designed in [docs/CLAIMS_EVIDENCE.md](docs/CLAIMS_EVIDENCE.md).
 - X data (Community Archive, TwiBot-22) for method tests.
