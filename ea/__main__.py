@@ -21,7 +21,7 @@ from pathlib import Path
 
 import json
 
-from ea import collect, evaluate, features, ira2018, label, model, network, seeds, synthetic
+from ea import collect, evaluate, features, ira2018, label, model, network, seeds, synthetic, threads
 from ea.config import load_config, paths
 
 
@@ -29,7 +29,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("stage", choices=["volumes", "topic-share", "seed-list", "collect", "features", "sample",
                                           "agreement", "train", "score", "evaluate", "demo",
-                                          "seeds", "network", "network-demo"])
+                                          "seeds", "threads", "network", "network-demo"])
     parser.add_argument("--config", default="config/immigration.toml")
     parser.add_argument("--only", nargs="*", help="collect: just these subreddits")
     parser.add_argument("--posts-dump", help="collect: read posts from this dump file instead of the API")
@@ -71,6 +71,8 @@ def main():
     elif args.stage == "seeds":
         ira2018.download(cfg)
         print("Wrote %d posts, %d comments, %d seed accounts" % ira2018.convert(cfg))
+    elif args.stage == "threads":
+        print("Fetched %d threads" % threads.collect_threads(cfg))
     elif args.stage == "network":
         out, result = network.network_report(cfg)
         print(json.dumps(result, indent=2))
